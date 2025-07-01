@@ -276,16 +276,6 @@ def list_scripts():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/scripts/{filename}")
-def delete_script(filename: str = Path(..., description="Name of the script to delete")):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Script not found.")
-
-    os.remove(file_path)
-    return {"message": f"{filename} deleted successfully."}
-
 @app.get("/scripts/db/", response_model=List[Script])
 def list_scripts_from_db():
     with get_session() as session:

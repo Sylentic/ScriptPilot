@@ -1681,6 +1681,9 @@ echo "Hello from ScriptPilot!"
                 method: 'DELETE'
             });
             
+            // Clear cache to ensure fresh data
+            this.clearLastRunCache();
+            
             this.showToast('Script deleted successfully!', 'success');
             await this.loadScripts();
             await this.loadStats();
