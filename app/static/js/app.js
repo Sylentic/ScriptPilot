@@ -640,15 +640,146 @@ class ScriptPilot {
     }
 
     async createSchedule() {
+        console.log('=== CREATE SCHEDULE DEBUG START ===');
+        
         const form = document.getElementById('createScheduleForm');
+        console.log('Form element found:', !!form);
+        
+        if (!form) {
+            this.showToast('Schedule form not found! Please refresh the page.', 'error');
+            return;
+        }
+
+        // Try multiple methods to get form data
+        console.log('Trying FormData approach...');
         const formData = new FormData(form);
+        const formDataEntries = {};
+        for (let [key, value] of formData.entries()) {
+            formDataEntries[key] = value;
+        }
+        console.log('FormData entries:', formDataEntries);
+
+        // Also try direct element access
+        console.log('Trying direct element access...');
+        const scriptIdElement = document.getElementById('scheduleScript');
+        const nameElement = document.getElementById('scheduleName');
+        const scheduleTypeElement = document.getElementById('scheduleType');
+        const startTimeElement = document.getElementById('startTime');
+        const maxRunsElement = document.getElementById('maxRuns');
+        
+        console.log('Elements found:', {
+            scheduleScript: !!scriptIdElement,
+            scheduleName: !!nameElement,
+            scheduleType: !!scheduleTypeElement,
+            startTime: !!startTimeElement,
+            maxRuns: !!maxRunsElement
+        });
+
+        console.log('Raw form values:', {
+            scriptId: scriptIdElement ? scriptIdElement.value : 'ELEMENT NOT FOUND',
+            name: nameElement ? nameElement.value : 'ELEMENT NOT FOUND',
+            scheduleType: scheduleTypeElement ? scheduleTypeElement.value : 'ELEMENT NOT FOUND',
+            startTime: startTimeElement ? startTimeElement.value : 'ELEMENT NOT FOUND',
+            maxRuns: maxRunsElement ? maxRunsElement.value : 'ELEMENT NOT FOUND'
+        });
+
+        // Use FormData if elements not found directly, otherwise use direct access
+        let scriptId, name, scheduleType, startTime, maxRuns;
+
+        if (scriptIdElement && nameElement && scheduleTypeElement && startTimeElement) {
+            console.log('Using direct element access');
+            scriptId = scriptIdElement.value;
+            name = nameElement.value.trim();
+            scheduleType = scheduleTypeElement.value;
+            startTime = startTimeElement.value;
+            maxRuns = maxRunsElement ? maxRunsElement.value.trim() : '';
+        } else {
+            console.log('Using FormData fallback');
+            scriptId = formDataEntries.script_id || '';
+            name = (formDataEntries.name || '').trim();
+            scheduleType = formDataEntries.schedule_type || '';
+            startTime = formDataEntries.start_time || '';
+            maxRuns = (formDataEntries.max_runs || '').trim();
+        }
+
+        console.log('Extracted values:', { scriptId, name, scheduleType, startTime, maxRuns });
+
+        // Build schedule data object
+        const scheduleData = {
+            script_id: parseInt(scriptId, 10),
+            name: name,
+            schedule_type: scheduleType,
+            start_time: startTime ? new Date(startTime).toISOString() : ''
+        };
+
+        // Handle optional max_runs field
+        if (maxRuns && maxRuns !== '') {
+            scheduleData.max_runs = parseInt(maxRuns, 10);
+        }
+
+        console.log('Schedule data before validation:', scheduleData);
+
+        // Validate required fields
+        if (!scriptId || scriptId === '' || isNaN(scheduleData.script_id)) {
+            this.showToast('Please select a script', 'error');
+            console.log('Validation failed: script_id');
+            return;
+        }
+        if (!name) {
+            this.showToast('Please enter a schedule name', 'error');
+            console.log('Validation failed: name');
+            return;
+        }
+        if (!scheduleType) {
+            this.showToast('Please select a schedule type', 'error');
+            console.log('Validation failed: schedule_type');
+            return;
+        }
+        if (!startTime) {
+            this.showToast('Please select a start time', 'error');
+            console.log('Validation failed: start_time');
+            return;
+        }
+
+        console.log('Final schedule data being sent:', scheduleData);
+        console.log('=== CREATE SCHEDULE DEBUG END ===');
 
         this.showLoading();
         try {
-            await this.apiCall('/schedules/', {
+            console.log('Making API call to /schedules/...');
+            
+            // Backend expects Form data, not JSON
+            const formDataForAPI = new FormData();
+            formDataForAPI.append('script_id', scheduleData.script_id.toString());
+            formDataForAPI.append('name', scheduleData.name);
+            formDataForAPI.append('schedule_type', scheduleData.schedule_type);
+            formDataForAPI.append('start_time', scheduleData.start_time);
+            
+            if (scheduleData.max_runs) {
+                formDataForAPI.append('max_runs', scheduleData.max_runs.toString());
+            }
+            
+            console.log('Form data being sent:');
+            for (let [key, value] of formDataForAPI.entries()) {
+                console.log(`  ${key}: ${value}`);
+            }
+            
+            const response = await fetch(`${this.apiBase}/schedules/`, {
                 method: 'POST',
-                body: formData
+                body: formDataForAPI  // Send as form data, not JSON
             });
+            
+            console.log('Response status:', response.status);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.log('Error response body:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Success response:', result);
             
             this.showToast('Schedule created successfully!', 'success');
             this.closeModal('createScheduleModal');
@@ -658,6 +789,7 @@ class ScriptPilot {
             await this.loadStats();
             this.showTab('schedules');
         } catch (error) {
+            console.error('API call failed:', error);
             this.showToast('Failed to create schedule: ' + error.message, 'error');
         } finally {
             this.hideLoading();
