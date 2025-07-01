@@ -779,9 +779,69 @@ async def get_script_content(script_id: int):
                 "language": script.language,
                 "description": script.description,
                 "content": content,
-                "created_at": script.created_at,
-                "updated_at": script.updated_at
+                "created_at": script.upload_time,
+                "updated_at": script.upload_time
             }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading script: {str(e)}")
+
+@app.put("/scripts/{script_id}/content")
+async def update_script_content(script_id: int, content_data: dict):
+    """Update script content"""
+    try:
+        with get_session() as session:
+            script = session.get(Script, script_id)
+            if not script:
+                raise HTTPException(status_code=404, detail="Script not found")
+            
+            # Update the actual file content
+            file_path = os.path.join(UPLOAD_DIR, script.filename)
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="Script file not found")
+            
+            # Write the new content to the file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content_data.get('content', ''))
+            
+            # Update description if provided
+            if 'description' in content_data:
+                script.description = content_data['description']
+                session.commit()
+            
+            return {
+                "message": "Script content updated successfully",
+                "script_id": script_id,
+                "filename": script.filename,
+                "updated_at": datetime.utcnow()
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating script: {str(e)}")
+
+@app.delete("/scripts/{script_id}")
+async def delete_script(script_id: int):
+    """Delete a script and its associated file"""
+    try:
+        with get_session() as session:
+            script = session.get(Script, script_id)
+            if not script:
+                raise HTTPException(status_code=404, detail="Script not found")
+            
+            # Delete the actual file
+            file_path = os.path.join(UPLOAD_DIR, script.filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            
+            # Delete from database
+            session.delete(script)
+            session.commit()
+            
+            return {
+                "message": "Script deleted successfully",
+                "script_id": script_id,
+                "filename": script.filename
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting script: {str(e)}")

@@ -12,6 +12,7 @@ class ScriptPilot {
         
         // Editor properties
         this.editor = null;
+        this.editorType = null; // 'codemirror' or 'textarea'
         this.currentScript = null;
         this.originalContent = '';
         
@@ -865,123 +866,226 @@ class ScriptPilot {
 
     // Editor functions
     async initializeEditor() {
-        // Wait for CodeMirror to be available
-        if (!window.CodeMirror) {
-            setTimeout(() => this.initializeEditor(), 100);
-            return;
-        }
+        return new Promise((resolve) => {
+            // Wait for CodeMirror to be available
+            window.waitForCodeMirror((available) => {
+                if (!available) {
+                    console.log('CodeMirror not available, using fallback editor');
+                    this.initializeFallbackEditor();
+                    resolve();
+                    return;
+                }
 
-        const { EditorView, basicSetup, python, javascript, shell, oneDark } = window.CodeMirror;
-        
-        // Create the editor
-        this.editor = new EditorView({
-            extensions: [
-                basicSetup,
-                oneDark,
-                EditorView.updateListener.of((update) => {
-                    if (update.docChanged) {
-                        this.updateEditorStatus();
+                try {
+                    console.log('Initializing CodeMirror editor...');
+                    const { EditorView, basicSetup, oneDark } = window.CodeMirror;
+                    
+                    const container = document.getElementById('codeEditor');
+                    if (!container) {
+                        throw new Error('Code editor container not found');
                     }
-                    if (update.selectionSet) {
-                        this.updateCursorPosition();
-                    }
-                })
-            ],
-            parent: document.getElementById('codeEditor')
+                    
+                    // Clear any existing content
+                    container.innerHTML = '';
+                    
+                    // Create the editor with basic setup
+                    this.editor = new EditorView({
+                        extensions: [
+                            basicSetup,
+                            oneDark,
+                            EditorView.updateListener.of((update) => {
+                                if (update.docChanged && this.updateEditorStatus) {
+                                    this.updateEditorStatus();
+                                }
+                                if (update.selectionSet && this.updateCursorPosition) {
+                                    this.updateCursorPosition();
+                                }
+                            })
+                        ],
+                        parent: container
+                    });
+                    
+                    console.log('CodeMirror editor initialized successfully');
+                    this.editorType = 'codemirror';
+                    resolve();
+                } catch (error) {
+                    console.error('Error initializing CodeMirror editor:', error);
+                    this.initializeFallbackEditor();
+                    resolve();
+                }
+            });
         });
+    }
+
+    initializeFallbackEditor() {
+        try {
+            console.log('Initializing fallback textarea editor...');
+            const container = document.getElementById('codeEditor');
+            if (!container) {
+                throw new Error('Code editor container not found');
+            }
+            
+            this.editor = window.createFallbackEditor(container);
+            this.editorType = 'textarea';
+            console.log('Fallback editor initialized successfully');
+        } catch (error) {
+            console.error('Error initializing fallback editor:', error);
+            this.showToast('Failed to initialize code editor', 'error');
+        }
     }
 
     updateEditorStatus() {
+        if (!this.editor) return;
+        
         const status = document.getElementById('editorStatus');
-        const hasChanges = this.editor.state.doc.toString() !== this.originalContent;
-        status.textContent = hasChanges ? 'Modified' : 'Ready';
-        status.style.color = hasChanges ? '#ffc107' : '#28a745';
+        if (!status) return;
+        
+        try {
+            let currentContent = '';
+            if (this.editorType === 'codemirror') {
+                currentContent = this.editor.state.doc.toString();
+            } else {
+                currentContent = this.editor.getValue();
+            }
+            
+            const hasChanges = currentContent !== this.originalContent;
+            status.textContent = hasChanges ? 'Modified' : 'Ready';
+            status.style.color = hasChanges ? '#ffc107' : '#28a745';
+        } catch (error) {
+            console.error('Error updating editor status:', error);
+        }
     }
 
     updateCursorPosition() {
-        const pos = this.editor.state.selection.main.head;
-        const line = this.editor.state.doc.lineAt(pos);
-        const col = pos - line.from + 1;
-        document.getElementById('cursorPosition').textContent = `Line ${line.number}, Column ${col}`;
+        if (!this.editor) return;
+        
+        const positionEl = document.getElementById('cursorPosition');
+        if (!positionEl) return;
+        
+        try {
+            if (this.editorType === 'codemirror') {
+                const pos = this.editor.state.selection.main.head;
+                const line = this.editor.state.doc.lineAt(pos);
+                const col = pos - line.from + 1;
+                positionEl.textContent = `Line ${line.number}, Column ${col}`;
+            } else {
+                // For textarea fallback
+                const textarea = this.editor.getElement();
+                const pos = textarea.selectionStart;
+                const beforeCursor = textarea.value.substring(0, pos);
+                const lines = beforeCursor.split('\n');
+                const line = lines.length;
+                const col = lines[lines.length - 1].length + 1;
+                positionEl.textContent = `Line ${line}, Column ${col}`;
+            }
+        } catch (error) {
+            console.error('Error updating cursor position:', error);
+        }
     }
 
     setEditorLanguage(language) {
-        if (!this.editor || !window.CodeMirror) return;
+        if (!this.editor || !window.CodeMirror || this.editorType !== 'codemirror') return;
         
-        const { python, javascript, shell } = window.CodeMirror;
-        let langExtension;
-        
-        switch (language.toLowerCase()) {
-            case 'python':
-                langExtension = python();
-                break;
-            case 'javascript':
-                langExtension = javascript();
-                break;
-            case 'powershell':
-            case 'bash':
-                langExtension = shell();
-                break;
-            default:
-                return;
+        try {
+            const { python, javascript, shell, powerShell } = window.CodeMirror;
+            let langExtension;
+            
+            switch (language.toLowerCase()) {
+                case 'python':
+                    langExtension = python();
+                    break;
+                case 'javascript':
+                    langExtension = javascript();
+                    break;
+                case 'powershell':
+                    langExtension = powerShell();
+                    break;
+                case 'bash':
+                    langExtension = shell();
+                    break;
+                default:
+                    return;
+            }
+            
+            // Reconfigure the editor with the new language
+            this.editor.dispatch({
+                effects: this.editor.state.reconfigure([
+                    window.CodeMirror.basicSetup,
+                    window.CodeMirror.oneDark,
+                    langExtension,
+                    window.CodeMirror.EditorView.updateListener.of((update) => {
+                        if (update.docChanged && this.updateEditorStatus) {
+                            this.updateEditorStatus();
+                        }
+                        if (update.selectionSet && this.updateCursorPosition) {
+                            this.updateCursorPosition();
+                        }
+                    })
+                ])
+            });
+        } catch (error) {
+            console.error('Error setting editor language:', error);
         }
-        
-        // Reconfigure the editor with the new language
-        this.editor.dispatch({
-            effects: this.editor.state.reconfigure([
-                window.CodeMirror.basicSetup,
-                window.CodeMirror.oneDark,
-                langExtension,
-                window.CodeMirror.EditorView.updateListener.of((update) => {
-                    if (update.docChanged) {
-                        this.updateEditorStatus();
-                    }
-                    if (update.selectionSet) {
-                        this.updateCursorPosition();
-                    }
-                })
-            ])
-        });
     }
 
     async openScriptEditor(scriptId) {
+        console.log('Opening script editor for script ID:', scriptId);
         try {
             // Fetch script content
+            console.log('Fetching script content...');
             const response = await fetch(`${this.apiBase}/scripts/${scriptId}/content`);
-            if (!response.ok) throw new Error('Failed to fetch script content');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to fetch script content: ${response.status} ${errorText}`);
+            }
             
             const script = await response.json();
+            console.log('Script data received:', script);
             this.currentScript = script;
             this.originalContent = script.content || '';
             
             // Initialize editor if not already done
             if (!this.editor) {
+                console.log('Editor not initialized, initializing...');
                 await this.initializeEditor();
             }
             
+            if (!this.editor) {
+                throw new Error('Failed to initialize editor');
+            }
+            
             // Set editor content
-            this.editor.dispatch({
-                changes: {
-                    from: 0,
-                    to: this.editor.state.doc.length,
-                    insert: this.originalContent
+            console.log('Setting editor content...');
+            if (this.editor) {
+                if (this.editorType === 'codemirror') {
+                    this.editor.dispatch({
+                        changes: {
+                            from: 0,
+                            to: this.editor.state.doc.length,
+                            insert: this.originalContent
+                        }
+                    });
+                    
+                    // Set language highlighting
+                    this.setEditorLanguage(script.language);
+                } else {
+                    this.editor.setValue(this.originalContent);
                 }
-            });
-            
-            // Set language highlighting
-            this.setEditorLanguage(script.language);
-            
-            // Update UI
-            document.getElementById('editorTitle').textContent = `Edit Script - ${script.filename}`;
-            document.getElementById('editorFilename').textContent = script.filename;
-            document.getElementById('editorLanguage').textContent = script.language.toUpperCase();
-            document.getElementById('editorLanguage').className = `language-badge lang-${script.language}`;
-            
-            this.updateEditorStatus();
-            this.updateCursorPosition();
-            
-            // Show modal
-            this.showModal('editorModal');
+                
+                // Update UI
+                document.getElementById('editorTitle').textContent = `Edit Script - ${script.filename}`;
+                document.getElementById('editorFilename').textContent = script.filename;
+                document.getElementById('editorLanguage').textContent = script.language.toUpperCase();
+                document.getElementById('editorLanguage').className = `language-badge lang-${script.language}`;
+                
+                this.updateEditorStatus();
+                this.updateCursorPosition();
+                
+                // Show modal
+                this.showModal('editorModal');
+            } else {
+                throw new Error('Editor is not available');
+            }
             
         } catch (error) {
             console.error('Error opening script editor:', error);
@@ -1030,31 +1134,39 @@ class ScriptPilot {
             }
             
             // Set editor content
-            this.editor.dispatch({
-                changes: {
-                    from: 0,
-                    to: this.editor.state.doc.length,
-                    insert: this.originalContent
+            if (this.editor) {
+                if (this.editorType === 'codemirror') {
+                    this.editor.dispatch({
+                        changes: {
+                            from: 0,
+                            to: this.editor.state.doc.length,
+                            insert: this.originalContent
+                        }
+                    });
+                    
+                    // Set language highlighting
+                    this.setEditorLanguage(language);
+                } else {
+                    this.editor.setValue(this.originalContent);
                 }
-            });
-            
-            // Set language highlighting
-            this.setEditorLanguage(language);
-            
-            // Update UI
-            document.getElementById('editorTitle').textContent = `New Script - ${name}`;
-            document.getElementById('editorFilename').textContent = name;
-            document.getElementById('editorLanguage').textContent = language.toUpperCase();
-            document.getElementById('editorLanguage').className = `language-badge lang-${language}`;
-            
-            this.updateEditorStatus();
-            this.updateCursorPosition();
-            
-            // Show editor modal
-            this.showModal('editorModal');
-            
-            // Reset form
-            document.getElementById('newScriptForm').reset();
+                
+                // Update UI
+                document.getElementById('editorTitle').textContent = `New Script - ${name}`;
+                document.getElementById('editorFilename').textContent = name;
+                document.getElementById('editorLanguage').textContent = language.toUpperCase();
+                document.getElementById('editorLanguage').className = `language-badge lang-${language}`;
+                
+                this.updateEditorStatus();
+                this.updateCursorPosition();
+                
+                // Show editor modal
+                this.showModal('editorModal');
+                
+                // Reset form
+                document.getElementById('newScriptForm').reset();
+            } else {
+                throw new Error('Failed to initialize editor');
+            }
             
         } catch (error) {
             console.error('Error creating new script:', error);
@@ -1098,62 +1210,113 @@ echo "Hello from ScriptPilot!"
     }
 
     async saveScript() {
-        if (!this.editor || !this.currentScript) return;
+        if (!this.editor || !this.currentScript) {
+            this.showToast('No script to save', 'warning');
+            return;
+        }
         
         try {
-            const content = this.editor.state.doc.toString();
-            const formData = new FormData();
+            let content = '';
+            if (this.editorType === 'codemirror') {
+                content = this.editor.state.doc.toString();
+            } else {
+                content = this.editor.getValue();
+            }
             
-            // Create a blob with the content
-            const blob = new Blob([content], { type: 'text/plain' });
-            formData.append('file', blob, this.currentScript.filename);
-            formData.append('description', this.currentScript.description || '');
-            
-            const response = await fetch(`${this.apiBase}/upload/`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) throw new Error('Failed to save script');
-            
-            const result = await response.json();
-            this.originalContent = content;
-            this.currentScript.id = result.id;
-            
-            this.updateEditorStatus();
-            this.showToast('Script saved successfully!', 'success');
+            if (this.currentScript.id) {
+                // Update existing script
+                const response = await fetch(`${this.apiBase}/scripts/${this.currentScript.id}/content`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        description: this.currentScript.description || ''
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to update script');
+                
+                this.originalContent = content;
+                this.updateEditorStatus();
+                this.showToast('Script updated successfully!', 'success');
+                
+            } else {
+                // Create new script
+                const formData = new FormData();
+                const blob = new Blob([content], { type: 'text/plain' });
+                formData.append('file', blob, this.currentScript.filename);
+                formData.append('description', this.currentScript.description || '');
+                
+                const response = await fetch(`${this.apiBase}/upload/`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Failed to save script');
+                
+                const result = await response.json();
+                this.originalContent = content;
+                
+                // Update current script with the new ID and info
+                const scriptsResponse = await fetch(`${this.apiBase}/scripts/db/`);
+                const scripts = await scriptsResponse.json();
+                this.currentScript = scripts.find(s => s.filename === this.currentScript.filename) || this.currentScript;
+                
+                this.updateEditorStatus();
+                this.showToast('Script created successfully!', 'success');
+            }
             
             // Refresh scripts list
             await this.loadScripts();
             
         } catch (error) {
             console.error('Error saving script:', error);
-            this.showToast('Failed to save script', 'error');
+            this.showToast('Failed to save script: ' + error.message, 'error');
         }
     }
 
     resetEditor() {
-        if (!this.editor) return;
+        if (!this.editor) {
+            this.showToast('No editor to reset', 'warning');
+            return;
+        }
         
-        this.editor.dispatch({
-            changes: {
-                from: 0,
-                to: this.editor.state.doc.length,
-                insert: this.originalContent
+        try {
+            if (this.editorType === 'codemirror') {
+                this.editor.dispatch({
+                    changes: {
+                        from: 0,
+                        to: this.editor.state.doc.length,
+                        insert: this.originalContent
+                    }
+                });
+            } else {
+                this.editor.setValue(this.originalContent);
             }
-        });
-        
-        this.updateEditorStatus();
-        this.showToast('Changes reset', 'info');
+            
+            this.updateEditorStatus();
+            this.showToast('Changes reset', 'info');
+        } catch (error) {
+            console.error('Error resetting editor:', error);
+            this.showToast('Failed to reset editor', 'error');
+        }
     }
 
     async executeCurrentScript() {
-        if (!this.currentScript || !this.currentScript.id) {
+        if (!this.currentScript) {
+            this.showToast('No script selected', 'warning');
+            return;
+        }
+        
+        if (!this.currentScript.id) {
             this.showToast('Please save the script first', 'warning');
             return;
         }
         
         try {
+            this.showLoading();
             const response = await fetch(`${this.apiBase}/scripts/${this.currentScript.id}/execute/`, {
                 method: 'POST'
             });
@@ -1163,10 +1326,64 @@ echo "Hello from ScriptPilot!"
             const result = await response.json();
             this.showExecutionResult(result);
             
+            // Refresh execution data
+            await this.loadExecutions();
+            await this.loadStats();
+            
         } catch (error) {
             console.error('Error executing script:', error);
-            this.showToast('Failed to execute script', 'error');
+            this.showToast('Failed to execute script: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
         }
+    }
+
+    showExecutionResult(result) {
+        // Create a formatted execution result display
+        const executionDetails = `
+            <div class="execution-result">
+                <h4><i class="fas fa-play-circle"></i> Execution Result</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>Script:</label>
+                        <span>${result.filename}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Exit Code:</label>
+                        <span class="${result.success ? 'success-text' : 'error-text'}">${result.exit_code}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Execution Time:</label>
+                        <span>${result.execution_time_seconds}s</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status:</label>
+                        <span class="status-badge ${result.success ? 'status-success' : 'status-failed'}">
+                            ${result.success ? 'SUCCESS' : 'FAILED'}
+                        </span>
+                    </div>
+                </div>
+                
+                ${result.stdout ? `
+                    <h4><i class="fas fa-terminal"></i> Output</h4>
+                    <div class="code-block">${result.stdout}</div>
+                ` : ''}
+                
+                ${result.stderr ? `
+                    <h4><i class="fas fa-exclamation-triangle"></i> Errors</h4>
+                    <div class="code-block error-text">${result.stderr}</div>
+                ` : ''}
+            </div>
+        `;
+        
+        document.getElementById('executionDetails').innerHTML = executionDetails;
+        this.showModal('executionModal');
+        
+        // Also show a toast notification
+        this.showToast(
+            result.success ? 'Script executed successfully!' : 'Script execution failed',
+            result.success ? 'success' : 'error'
+        );
     }
 
     // Utility functions
@@ -1226,6 +1443,38 @@ echo "Hello from ScriptPilot!"
 
     showHelpModal() {
         this.showModal('helpModal');
+    }
+
+    async viewExecutionHistory(scriptId) {
+        // Filter executions for this script and switch to executions tab
+        const scriptExecutions = this.executions.filter(exec => exec.script_id === scriptId);
+        this.renderExecutions(scriptExecutions);
+        this.showTab('executions');
+    }
+
+    scheduleScript(scriptId) {
+        this.createScheduleForScript(scriptId);
+    }
+
+    async deleteScript(scriptId) {
+        if (!confirm('Are you sure you want to delete this script? This action cannot be undone.')) {
+            return;
+        }
+
+        this.showLoading();
+        try {
+            await this.apiCall(`/scripts/${scriptId}`, {
+                method: 'DELETE'
+            });
+            
+            this.showToast('Script deleted successfully!', 'success');
+            await this.loadScripts();
+            await this.loadStats();
+        } catch (error) {
+            this.showToast('Failed to delete script: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
 }
 
