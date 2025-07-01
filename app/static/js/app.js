@@ -16,6 +16,10 @@ class ScriptPilot {
         this.currentScript = null;
         this.originalContent = '';
         
+        // Performance optimizations
+        this.lastRunCache = new Map(); // Cache for script last run data
+        this.cacheExpiry = 60000; // Cache expires after 1 minute
+        
         this.init();
     }
 
@@ -26,10 +30,28 @@ class ScriptPilot {
             await this.loadInitialData();
             this.showTab('scripts');
             this.startAutoRefresh();
+            
+            // Pre-initialize editor for faster first-time opening
+            this.preInitializeEditor();
         } catch (error) {
             console.error('Error during initialization:', error);
             this.showToast('Error initializing application: ' + error.message, 'error');
         }
+    }
+
+    // Pre-initialize editor in background for faster opening
+    async preInitializeEditor() {
+        setTimeout(async () => {
+            if (!this.editor) {
+                console.log('Pre-initializing editor for faster first-time opening...');
+                try {
+                    await this.initializeEditor();
+                    console.log('Editor pre-initialized successfully');
+                } catch (error) {
+                    console.log('Editor pre-initialization failed, will initialize on demand');
+                }
+            }
+        }, 1000); // Wait 1 second after app loads
     }
 
     setupEventListeners() {
@@ -157,16 +179,42 @@ class ScriptPilot {
     async loadInitialData() {
         this.showLoading();
         try {
-            await Promise.all([
-                this.loadStats(),
+            // Load critical data first (scripts and stats) for faster perceived performance
+            const [scriptsLoaded, statsLoaded] = await Promise.allSettled([
                 this.loadScripts(),
-                this.loadSchedules(),
-                this.loadExecutions()
+                this.loadStats()
             ]);
+            
+            // Handle errors gracefully
+            if (scriptsLoaded.status === 'rejected') {
+                console.error('Failed to load scripts:', scriptsLoaded.reason);
+                this.showToast('Failed to load scripts', 'error');
+            }
+            
+            if (statsLoaded.status === 'rejected') {
+                console.error('Failed to load stats:', statsLoaded.reason);
+            }
+            
+            // Load secondary data in background without blocking UI
+            this.loadSecondaryData();
+            
         } catch (error) {
             this.showToast('Error loading data: ' + error.message, 'error');
         } finally {
             this.hideLoading();
+        }
+    }
+
+    // Load secondary data that's not immediately visible
+    async loadSecondaryData() {
+        try {
+            await Promise.allSettled([
+                this.loadSchedules(),
+                this.loadExecutions()
+            ]);
+        } catch (error) {
+            console.log('Error loading secondary data:', error);
+            // Don't show toast for secondary data errors as UI is already loaded
         }
     }
 
@@ -224,8 +272,13 @@ class ScriptPilot {
     async loadScripts() {
         try {
             this.scripts = await this.apiCall('/scripts/db/');
+            
+            // Render scripts immediately for faster UI
             this.renderScripts();
             this.updateScheduleScriptOptions();
+            
+            // Load last run info in background without blocking
+            this.loadLastRunInfoAsync();
         } catch (error) {
             this.showToast('Error loading scripts: ' + error.message, 'error');
         }
@@ -277,7 +330,9 @@ class ScriptPilot {
                             <span class="script-time">${new Date(script.created_at).toLocaleTimeString()}</span>
                         </div>
                         <div class="col-lastrun">
-                            <span class="last-run-info" data-script-id="${script.id}">Loading...</span>
+                            <span class="last-run-info" data-script-id="${script.id}">
+                                <span class="loading-dot">•</span>
+                            </span>
                         </div>
                         <div class="col-actions">
                             <button class="btn-icon btn-primary" onclick="app.openScriptEditor(${script.id})" title="Edit Script">
@@ -300,18 +355,28 @@ class ScriptPilot {
                 `).join('')}
             </div>
         `;
-        
-        // Load last run information for each script
-        this.loadLastRunInfo();
     }
 
     filterScripts(searchTerm) {
+        if (!searchTerm || searchTerm.trim() === '') {
+            // If no search term, show all scripts
+            this.renderScripts();
+            this.loadLastRunInfoAsync(); // Reload last run info for all scripts
+            return;
+        }
+        
         const filtered = this.scripts.filter(script => 
             script.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
             script.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             script.language.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        this.renderScripts(filtered);
+        
+        // Temporarily store original scripts and replace with filtered
+        const originalScripts = this.scripts;
+        this.scripts = filtered;
+        this.renderScripts();
+        this.loadLastRunInfoAsync(); // Load last run info for filtered scripts
+        this.scripts = originalScripts; // Restore original scripts
     }
 
     async loadSchedules() {
@@ -523,12 +588,31 @@ class ScriptPilot {
             this.showToast(`Script executed ${result.success ? 'successfully' : 'with errors'}!`, 
                          result.success ? 'success' : 'warning');
             
+            // Clear cache for this script since it just executed
+            this.clearLastRunCache(scriptId);
+            
             await this.loadExecutions();
             await this.loadStats();
+            
+            // Update the last run info for this specific script
+            setTimeout(() => {
+                this.updateSingleScriptLastRun(scriptId);
+            }, 500); // Small delay to ensure backend is updated
+            
         } catch (error) {
             this.showToast('Execution failed: ' + error.message, 'error');
         } finally {
             this.hideLoading();
+        }
+    }
+
+    // Update last run info for a single script
+    async updateSingleScriptLastRun(scriptId) {
+        try {
+            const lastRun = await this.getScriptLastRun(scriptId);
+            this.updateLastRunDisplay(scriptId, lastRun);
+        } catch (error) {
+            console.warn(`Failed to update last run for script ${scriptId}:`, error);
         }
     }
 
@@ -725,46 +809,131 @@ class ScriptPilot {
         return lastDotIndex > 0 ? filename.substring(0, lastDotIndex) : filename;
     }
 
-    async loadLastRunInfo() {
-        for (const script of this.scripts) {
-            try {
-                const executions = await this.apiCall(`/scripts/${script.id}/executions/?limit=1`);
-                const lastRunElement = document.querySelector(`.last-run-info[data-script-id="${script.id}"]`);
+    // Load last run info asynchronously without blocking UI
+    async loadLastRunInfoAsync() {
+        if (this.scripts.length === 0) return;
+        
+        try {
+            console.log(`Loading last run info for ${this.scripts.length} scripts in parallel...`);
+            
+            // For better performance with many scripts, process in batches
+            const batchSize = 10; // Process 10 scripts at a time
+            const batches = [];
+            
+            for (let i = 0; i < this.scripts.length; i += batchSize) {
+                batches.push(this.scripts.slice(i, i + batchSize));
+            }
+            
+            // Process batches sequentially to avoid overwhelming the server
+            for (const batch of batches) {
+                const batchPromises = batch.map(script => 
+                    this.getScriptLastRun(script.id).catch(error => {
+                        console.warn(`Failed to load last run for script ${script.id}:`, error);
+                        return null; // Return null on error, handle gracefully
+                    })
+                );
                 
-                if (lastRunElement) {
-                    if (executions.length > 0) {
-                        const lastExecution = executions[0];
-                        if (lastExecution.success) {
-                            const lastRunDate = new Date(lastExecution.executed_at);
-                            lastRunElement.innerHTML = `
-                                <span class="last-run-date">${lastRunDate.toLocaleDateString()}</span>
-                                <span class="last-run-time">${lastRunDate.toLocaleTimeString()}</span>
-                            `;
-                            lastRunElement.className = 'last-run-info success';
-                        } else {
-                            lastRunElement.innerHTML = `
-                                <span class="last-run-failed">Last run failed</span>
-                                <span class="last-run-time">${new Date(lastExecution.executed_at).toLocaleDateString()}</span>
-                            `;
-                            lastRunElement.className = 'last-run-info failed';
-                        }
-                    } else {
-                        lastRunElement.innerHTML = '<span class="never-run">Never</span>';
-                        lastRunElement.className = 'last-run-info never';
-                    }
-                }
-            } catch (error) {
-                const lastRunElement = document.querySelector(`.last-run-info[data-script-id="${script.id}"]`);
-                if (lastRunElement) {
-                    lastRunElement.innerHTML = '<span class="never-run">Never</span>';
-                    lastRunElement.className = 'last-run-info never';
+                const batchResults = await Promise.all(batchPromises);
+                
+                // Update UI immediately for this batch
+                batchResults.forEach((lastRun, index) => {
+                    const script = batch[index];
+                    this.updateLastRunDisplay(script.id, lastRun);
+                });
+                
+                // Small delay between batches to prevent overwhelming the server
+                if (batches.length > 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
+            
+            console.log('Last run info loaded successfully');
+        } catch (error) {
+            console.error('Error loading last run info:', error);
+            // Fallback: show "Never" for all scripts
+            this.scripts.forEach(script => {
+                this.updateLastRunDisplay(script.id, null);
+            });
         }
+    }
+
+    // Get last run for a single script with caching
+    async getScriptLastRun(scriptId) {
+        const cacheKey = `lastrun_${scriptId}`;
+        const cached = this.lastRunCache.get(cacheKey);
+        
+        // Check if cache is valid (not expired)
+        if (cached && (Date.now() - cached.timestamp) < this.cacheExpiry) {
+            return cached.data;
+        }
+        
+        try {
+            const executions = await this.apiCall(`/scripts/${scriptId}/executions/?limit=1`);
+            const result = executions.length > 0 ? executions[0] : null;
+            
+            // Cache the result
+            this.lastRunCache.set(cacheKey, {
+                data: result,
+                timestamp: Date.now()
+            });
+            
+            return result;
+        } catch (error) {
+            // If cached data exists (even if expired), use it as fallback
+            if (cached) {
+                console.warn(`API failed for script ${scriptId}, using cached data`);
+                return cached.data;
+            }
+            throw error;
+        }
+    }
+
+    // Clear cache when scripts are executed or updated
+    clearLastRunCache(scriptId = null) {
+        if (scriptId) {
+            this.lastRunCache.delete(`lastrun_${scriptId}`);
+        } else {
+            this.lastRunCache.clear();
+        }
+    }
+
+    // Update last run display for a specific script
+    updateLastRunDisplay(scriptId, lastExecution) {
+        const lastRunElement = document.querySelector(`.last-run-info[data-script-id="${scriptId}"]`);
+        
+        if (!lastRunElement) return;
+        
+        if (lastExecution) {
+            if (lastExecution.success) {
+                const lastRunDate = new Date(lastExecution.executed_at);
+                lastRunElement.innerHTML = `
+                    <span class="last-run-date">${lastRunDate.toLocaleDateString()}</span>
+                    <span class="last-run-time">${lastRunDate.toLocaleTimeString()}</span>
+                `;
+                lastRunElement.className = 'last-run-info success';
+            } else {
+                lastRunElement.innerHTML = `
+                    <span class="last-run-failed">Last run failed</span>
+                    <span class="last-run-time">${new Date(lastExecution.executed_at).toLocaleDateString()}</span>
+                `;
+                lastRunElement.className = 'last-run-info failed';
+            }
+        } else {
+            lastRunElement.innerHTML = '<span class="never-run">Never</span>';
+            lastRunElement.className = 'last-run-info never';
+        }
+    }
+
+    // Legacy function - keeping for backward compatibility but optimized
+    async loadLastRunInfo() {
+        console.warn('loadLastRunInfo is deprecated, use loadLastRunInfoAsync instead');
+        await this.loadLastRunInfoAsync();
     }
 
     // Refresh functions
     async refreshScripts() {
+        // Clear cache to ensure fresh data
+        this.clearLastRunCache();
         await this.loadScripts();
         this.showToast('Scripts refreshed!', 'success');
     }
@@ -775,6 +944,8 @@ class ScriptPilot {
     }
 
     async refreshExecutions() {
+        // Clear cache when refreshing executions as last run data might have changed
+        this.clearLastRunCache();
         await this.loadExecutions();
         this.showToast('Executions refreshed!', 'success');
     }
@@ -885,7 +1056,7 @@ class ScriptPilot {
                         throw new Error('Code editor container not found');
                     }
                     
-                    // Clear any existing content
+                    // Clear any existing content including loading indicator
                     container.innerHTML = '';
                     
                     // Create the editor with basic setup
@@ -1030,66 +1201,130 @@ class ScriptPilot {
 
     async openScriptEditor(scriptId) {
         console.log('Opening script editor for script ID:', scriptId);
+        
+        // Show modal immediately for better UX
+        this.showModal('editorModal');
+        this.showEditorLoading(true);
+        document.getElementById('editorTitle').textContent = 'Loading Script...';
+        document.getElementById('editorFilename').textContent = 'Loading...';
+        document.getElementById('editorLanguage').textContent = '';
+        document.getElementById('editorLanguage').className = 'language-badge';
+        
         try {
-            // Fetch script content
-            console.log('Fetching script content...');
-            const response = await fetch(`${this.apiBase}/scripts/${scriptId}/content`);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to fetch script content: ${response.status} ${errorText}`);
-            }
+            // Initialize editor and fetch content in parallel
+            const [editorReady, script] = await Promise.all([
+                this.ensureEditorReady(),
+                this.fetchScriptContent(scriptId)
+            ]);
             
-            const script = await response.json();
             console.log('Script data received:', script);
             this.currentScript = script;
             this.originalContent = script.content || '';
             
-            // Initialize editor if not already done
-            if (!this.editor) {
-                console.log('Editor not initialized, initializing...');
-                await this.initializeEditor();
-            }
+            // Hide loading and set editor content efficiently
+            this.showEditorLoading(false);
+            this.setEditorContentAndLanguage(script);
             
-            if (!this.editor) {
-                throw new Error('Failed to initialize editor');
-            }
+            // Update UI
+            document.getElementById('editorTitle').textContent = `Edit Script - ${script.filename}`;
+            document.getElementById('editorFilename').textContent = script.filename;
+            document.getElementById('editorLanguage').textContent = script.language.toUpperCase();
+            document.getElementById('editorLanguage').className = `language-badge lang-${script.language}`;
             
-            // Set editor content
-            console.log('Setting editor content...');
-            if (this.editor) {
-                if (this.editorType === 'codemirror') {
-                    this.editor.dispatch({
-                        changes: {
-                            from: 0,
-                            to: this.editor.state.doc.length,
-                            insert: this.originalContent
-                        }
-                    });
-                    
-                    // Set language highlighting
-                    this.setEditorLanguage(script.language);
-                } else {
-                    this.editor.setValue(this.originalContent);
-                }
-                
-                // Update UI
-                document.getElementById('editorTitle').textContent = `Edit Script - ${script.filename}`;
-                document.getElementById('editorFilename').textContent = script.filename;
-                document.getElementById('editorLanguage').textContent = script.language.toUpperCase();
-                document.getElementById('editorLanguage').className = `language-badge lang-${script.language}`;
-                
-                this.updateEditorStatus();
-                this.updateCursorPosition();
-                
-                // Show modal
-                this.showModal('editorModal');
-            } else {
-                throw new Error('Editor is not available');
-            }
+            this.updateEditorStatus();
+            this.updateCursorPosition();
             
         } catch (error) {
             console.error('Error opening script editor:', error);
             this.showToast('Failed to open script editor', 'error');
+            this.closeModal('editorModal');
+        }
+    }
+
+    // Show/hide editor loading indicator
+    showEditorLoading(show) {
+        const loadingEl = document.getElementById('editorLoading');
+        if (loadingEl) {
+            loadingEl.style.display = show ? 'flex' : 'none';
+        }
+    }
+
+    // Ensure editor is ready (initialize if needed)
+    async ensureEditorReady() {
+        if (!this.editor) {
+            console.log('Editor not initialized, initializing...');
+            await this.initializeEditor();
+        }
+        
+        if (!this.editor) {
+            throw new Error('Failed to initialize editor');
+        }
+        
+        return true;
+    }
+
+    // Fetch script content separately for parallel execution
+    async fetchScriptContent(scriptId) {
+        console.log('Fetching script content...');
+        const response = await fetch(`${this.apiBase}/scripts/${scriptId}/content`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch script content: ${response.status} ${errorText}`);
+        }
+        return await response.json();
+    }
+
+    // Set editor content and language more efficiently
+    setEditorContentAndLanguage(script) {
+        console.log('Setting editor content...');
+        if (this.editorType === 'codemirror') {
+            // Set content and language in one operation for better performance
+            const { python, javascript, shell, powerShell } = window.CodeMirror || {};
+            let langExtension = null;
+            
+            switch (script.language.toLowerCase()) {
+                case 'python':
+                    langExtension = python ? python() : null;
+                    break;
+                case 'javascript':
+                    langExtension = javascript ? javascript() : null;
+                    break;
+                case 'powershell':
+                    langExtension = powerShell ? powerShell() : null;
+                    break;
+                case 'bash':
+                    langExtension = shell ? shell() : null;
+                    break;
+            }
+
+            // Update content and reconfigure with language in one transaction
+            const extensions = [
+                window.CodeMirror.basicSetup,
+                window.CodeMirror.oneDark,
+                window.CodeMirror.EditorView.updateListener.of((update) => {
+                    if (update.docChanged && this.updateEditorStatus) {
+                        this.updateEditorStatus();
+                    }
+                    if (update.selectionSet && this.updateCursorPosition) {
+                        this.updateCursorPosition();
+                    }
+                })
+            ];
+            
+            if (langExtension) {
+                extensions.push(langExtension);
+            }
+
+            this.editor.dispatch({
+                changes: {
+                    from: 0,
+                    to: this.editor.state.doc.length,
+                    insert: this.originalContent
+                },
+                effects: this.editor.state.reconfigure(extensions)
+            });
+        } else {
+            this.editor.setValue(this.originalContent);
         }
     }
 
@@ -1115,6 +1350,17 @@ class ScriptPilot {
         }
         
         try {
+            // Close new script modal and show editor modal immediately
+            this.closeModal('newScriptModal');
+            this.showModal('editorModal');
+            this.showEditorLoading(true);
+            
+            // Update UI immediately
+            document.getElementById('editorTitle').textContent = `New Script - ${name}`;
+            document.getElementById('editorFilename').textContent = name;
+            document.getElementById('editorLanguage').textContent = language.toUpperCase();
+            document.getElementById('editorLanguage').className = `language-badge lang-${language}`;
+            
             // Create a temporary script object
             this.currentScript = {
                 filename: name,
@@ -1125,48 +1371,16 @@ class ScriptPilot {
             
             this.originalContent = this.currentScript.content;
             
-            // Close new script modal and open editor
-            this.closeModal('newScriptModal');
+            // Ensure editor is ready and set content
+            await this.ensureEditorReady();
+            this.showEditorLoading(false);
+            this.setEditorContentAndLanguage(this.currentScript);
             
-            // Initialize editor if not already done
-            if (!this.editor) {
-                await this.initializeEditor();
-            }
+            this.updateEditorStatus();
+            this.updateCursorPosition();
             
-            // Set editor content
-            if (this.editor) {
-                if (this.editorType === 'codemirror') {
-                    this.editor.dispatch({
-                        changes: {
-                            from: 0,
-                            to: this.editor.state.doc.length,
-                            insert: this.originalContent
-                        }
-                    });
-                    
-                    // Set language highlighting
-                    this.setEditorLanguage(language);
-                } else {
-                    this.editor.setValue(this.originalContent);
-                }
-                
-                // Update UI
-                document.getElementById('editorTitle').textContent = `New Script - ${name}`;
-                document.getElementById('editorFilename').textContent = name;
-                document.getElementById('editorLanguage').textContent = language.toUpperCase();
-                document.getElementById('editorLanguage').className = `language-badge lang-${language}`;
-                
-                this.updateEditorStatus();
-                this.updateCursorPosition();
-                
-                // Show editor modal
-                this.showModal('editorModal');
-                
-                // Reset form
-                document.getElementById('newScriptForm').reset();
-            } else {
-                throw new Error('Failed to initialize editor');
-            }
+            // Reset form
+            document.getElementById('newScriptForm').reset();
             
         } catch (error) {
             console.error('Error creating new script:', error);

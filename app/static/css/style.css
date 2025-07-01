@@ -696,6 +696,34 @@ body {
     width: 90%;
 }
 
+/* Dedicated Editor Modal Styles */
+.modal-editor {
+    max-width: 1200px;
+    max-height: 90vh;
+    width: 95%;
+    height: 90vh;
+}
+
+.modal-editor .modal-header {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+    border-bottom: 2px solid #007acc;
+    padding: 25px 35px;
+}
+
+.modal-editor .modal-header h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #007acc;
+}
+
+.editor-content {
+    padding: 30px 35px;
+    height: calc(100% - 100px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -1133,89 +1161,218 @@ kbd {
         max-width: 750px;
         margin: 30px;
     }
+}
+
+/* Editor Modal Responsive Styles */
+@media (max-width: 1024px) {
+    .modal-editor {
+        max-width: 95vw;
+        width: 90%;
+        height: 85vh;
+    }
     
-    .modal-large {
-        max-width: 90vw;
-        width: 85%;
+    .editor-content {
+        padding: 20px 25px;
+    }
+    
+    .editor-toolbar {
+        padding: 12px 15px;
+    }
+    
+    .editor-actions {
+        gap: 8px;
+    }
+    
+    .editor-actions .btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-editor {
+        width: 95%;
+        height: 90vh;
+        max-height: calc(100vh - 20px);
+    }
+    
+    .editor-content {
+        padding: 15px 20px;
+        gap: 15px;
+    }
+    
+    .editor-toolbar {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+        padding: 15px;
+    }
+    
+    .editor-info {
+        justify-content: center;
+        gap: 15px;
+    }
+    
+    .editor-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .code-editor {
+        min-height: 300px;
+        height: calc(100% - 180px);
     }
 }
 
 @media (max-width: 480px) {
-    .modal-content {
-        width: 95%;
-        height: auto;
-        max-height: calc(100vh - 30px);
-        border-radius: 8px;
-        top: 15px;
-        transform: translate(-50%, 0);
-        margin: 15px;
+    .modal-editor {
+        width: 98%;
+        height: 95vh;
+        max-height: calc(100vh - 10px);
     }
     
-    .modal-large {
-        width: 95%;
-        height: auto;
-        max-height: calc(100vh - 30px);
+    .modal-editor .modal-header {
+        padding: 15px 20px;
     }
     
-    .modal-header {
+    .modal-editor .modal-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .editor-content {
         padding: 10px 15px;
     }
     
-    .modal-header h3 {
-        font-size: 1.1rem;
+    .editor-toolbar {
+        padding: 12px;
     }
     
-    .modal-form {
-        padding: 15px;
+    .editor-info {
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .editor-filename {
+        font-size: 1rem;
+        text-align: center;
+        word-break: break-word;
+    }
+    
+    .editor-actions .btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .code-editor {
+        min-height: 250px;
+        height: calc(100% - 200px);
+    }
+    
+    .editor-status {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
     }
 }
 
 /* Script Editor Styles */
 .code-editor {
     border: 1px solid #3c3c3c;
-    border-radius: 6px;
-    min-height: 400px;
-    max-height: 60vh;
-    overflow: auto;
+    border-radius: 8px;
+    min-height: 500px;
+    height: calc(100vh - 350px);
+    max-height: none;
+    overflow: hidden;
     background: #1e1e1e;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    flex: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.modal-editor .code-editor {
+    height: calc(100% - 140px);
+    min-height: 400px;
 }
 
 .editor-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #3c3c3c;
+    padding: 15px 20px;
+    background: #2d2d2d;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    margin-bottom: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .editor-info {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 20px;
 }
 
 .editor-filename {
-    font-weight: bold;
-    color: #ffffff;
+    font-weight: 600;
+    color: #007acc;
     font-size: 1.1rem;
+}
+
+.language-badge {
+    background: #007acc;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .editor-actions {
     display: flex;
-    gap: 10px;
+    gap: 12px;
+}
+
+.editor-actions .btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .editor-status {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    margin-top: 15px;
-    border-top: 1px solid #3c3c3c;
+    padding: 12px 20px;
+    background: #2d2d2d;
+    border: 1px solid #3c3c3c;
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 0.9rem;
-    color: #b3b3b3;
+    color: #d4d4d4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.editor-status span {
+    color: #888;
+}
+
+#editorStatus {
+    color: #48bb78;
+    font-weight: 500;
+}
+
+#cursorPosition {
+    color: #007acc;
+    font-weight: 500;
 }
 
 /* Create New Script Button */
@@ -1240,27 +1397,85 @@ kbd {
 .cm-editor {
     background: #1e1e1e !important;
     color: #d4d4d4 !important;
-    border-radius: 6px;
+    border-radius: 8px;
+    height: 100% !important;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+}
+
+.modal-editor .cm-editor {
+    border-radius: 8px 8px 0 0;
 }
 
 .cm-content {
-    padding: 16px !important;
+    padding: 20px !important;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+    min-height: 100% !important;
 }
 
 .cm-focused {
-    outline: 1px solid #007acc !important;
+    outline: 2px solid #007acc !important;
+    outline-offset: -2px !important;
 }
 
 .cm-gutters {
     background: #252526 !important;
     border-right: 1px solid #3c3c3c !important;
+    padding-right: 8px !important;
 }
 
 .cm-lineNumbers .cm-gutterElement {
     color: #858585 !important;
+    padding-right: 12px !important;
+    font-size: 13px !important;
+}
+
+.cm-scroller {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+}
+
+.cm-line {
+    padding-left: 4px !important;
+}
+
+/* Enhanced syntax highlighting for better readability */
+.cm-keyword {
+    color: #569cd6 !important;
+    font-weight: 500 !important;
+}
+
+.cm-string {
+    color: #ce9178 !important;
+}
+
+.cm-comment {
+    color: #6a9955 !important;
+    font-style: italic !important;
+}
+
+.cm-number {
+    color: #b5cea8 !important;
+}
+
+.cm-operator {
+    color: #d4d4d4 !important;
+}
+
+.cm-variable {
+    color: #9cdcfe !important;
+}
+
+.cm-function {
+    color: #dcdcaa !important;
+}
+
+.cm-selection {
+    background: #264f78 !important;
+}
+
+.cm-cursor {
+    border-left: 2px solid #d4d4d4 !important;
 }
 
 .cm-activeLine {
@@ -1632,4 +1847,42 @@ kbd {
     font-weight: 500;
     font-family: 'Consolas', monospace;
     font-size: 0.95rem;
+}
+
+/* Editor Loading Indicator */
+.editor-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: #1e1e1e;
+    border-radius: 8px;
+    color: #007acc;
+    font-family: 'Consolas', monospace;
+}
+
+.editor-loading .spinner {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 15px;
+}
+
+.editor-loading p {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+/* Loading animation for script last run */
+.loading-dot {
+    color: #007acc;
+    animation: loadingPulse 1.5s infinite;
+    font-size: 1.2rem;
+}
+
+@keyframes loadingPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
 }

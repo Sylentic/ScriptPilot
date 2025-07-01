@@ -240,12 +240,12 @@
 
     <!-- Script Editor Modal -->
     <div id="editorModal" class="modal">
-        <div class="modal-content modal-large">
+        <div class="modal-content modal-editor">
             <div class="modal-header">
                 <h3 id="editorTitle"><i class="fas fa-edit"></i> Edit Script</h3>
                 <button class="modal-close" onclick="app.closeModal('editorModal')">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="editor-content">
                 <div class="editor-toolbar">
                     <div class="editor-info">
                         <span id="editorFilename" class="editor-filename"></span>
@@ -263,7 +263,12 @@
                         </button>
                     </div>
                 </div>
-                <div id="codeEditor" class="code-editor"></div>
+                <div id="codeEditor" class="code-editor">
+                    <div id="editorLoading" class="editor-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Loading script content...</p>
+                    </div>
+                </div>
                 <div class="editor-status">
                     <span id="editorStatus">Ready</span>
                     <span id="cursorPosition">Line 1, Column 1</span>
