@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptPilot - Automation Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- CodeMirror 6 CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/view@6.22.1/dist/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">        <div class="header-content">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h1><i class="fas fa-rocket"></i> ScriptPilot<span class="cursor">_</span></h1>
+                    <p>> Automated Script Management & Scheduling Platform</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 8px;">
+                    <button class="btn btn-secondary" onclick="app.showHelpModal()" title="Keyboard shortcuts and help">
+                        <i class="fas fa-question-circle"></i> Help
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.toggleAutoRefresh()" title="Toggle Auto-refresh">
+                        <i class="fas fa-sync-alt"></i> Auto-refresh
+                    </button>
+                    <div class="status-indicator" id="autoRefreshStatus" title="Auto-refresh enabled">
+                        <i class="fas fa-circle" style="color: #48bb78;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+            <div class="stats-overview" id="statsOverview">
+                <!-- Stats will be loaded here -->
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="scripts">
+                <i class="fas fa-file-code"></i> Scripts
+            </button>
+            <button class="tab-btn" data-tab="schedules">
+                <i class="fas fa-clock"></i> Schedules
+            </button>
+            <button class="tab-btn" data-tab="executions">
+                <i class="fas fa-play"></i> Executions
+            </button>
+            <button class="tab-btn" data-tab="upload">
+                <i class="fas fa-upload"></i> Upload
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Scripts Tab -->
+            <div class="tab-content active" id="scripts-tab">
+                <div class="section-header">
+                    <h2><i class="fas fa-file-code"></i> Script Management</h2>
+                    <div class="actions">
+                        <input type="text" id="scriptSearch" placeholder="Search scripts..." class="search-input">
+                        <button class="btn btn-secondary" onclick="app.createNewScript()" title="Create New Script">
+                            <i class="fas fa-plus"></i> Create Script
+                        </button>
+                        <button class="btn btn-primary" onclick="app.refreshCurrentTab()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="scripts-list" id="scriptsContainer">
+                    <!-- Scripts will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Schedules Tab -->
+            <div class="tab-content" id="schedules-tab">
+                <div class="section-header">
+                    <h2><i class="fas fa-clock"></i> Schedule Management</h2>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="app.showCreateScheduleModal()">
+                            <i class="fas fa-plus"></i> Create Schedule
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.refreshCurrentTab()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="schedules-list" id="schedulesList">
+                    <!-- Schedules will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Executions Tab -->
+            <div class="tab-content" id="executions-tab">
+                <div class="section-header">
+                    <h2><i class="fas fa-play"></i> Execution History</h2>
+                    <div class="actions">
+                        <select id="executionFilter" class="filter-select">
+                            <option value="">All Executions</option>
+                            <option value="true">Successful Only</option>
+                            <option value="false">Failed Only</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="app.refreshCurrentTab()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="executions-list" id="executionsList">
+                    <!-- Executions will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Upload Tab -->
+            <div class="tab-content" id="upload-tab">
+                <div class="section-header">
+                    <h2><i class="fas fa-upload"></i> Upload Script</h2>
+                </div>
+                <div class="upload-container">
+                    <form id="uploadForm" class="upload-form">
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h3>Drop your script here or click to browse</h3>
+                            <p>Supported formats: .py, .ps1, .sh</p>
+                            <input type="file" id="fileInput" name="file" accept=".py,.ps1,.sh" hidden>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description:</label>
+                            <textarea id="description" name="description" placeholder="Enter script description..." rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-large">
+                            <i class="fas fa-upload"></i> Upload Script
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Create Schedule Modal -->
+    <div id="createScheduleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-clock"></i> Create New Schedule</h3>
+                <button class="modal-close" onclick="app.closeModal('createScheduleModal')">&times;</button>
+            </div>
+            <form id="createScheduleForm" class="modal-form">
+                <div class="form-group">
+                    <label for="scheduleScript">Script:</label>
+                    <select id="scheduleScript" name="script_id" required>
+                        <option value="">Select a script...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="scheduleName">Schedule Name:</label>
+                    <input type="text" id="scheduleName" name="name" placeholder="e.g., Daily Backup" required>
+                </div>
+                <div class="form-group">
+                    <label for="scheduleType">Schedule Type:</label>
+                    <select id="scheduleType" name="schedule_type" required>
+                        <option value="once">Run Once</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="startTime">Start Time:</label>
+                    <input type="datetime-local" id="startTime" name="start_time" required>
+                </div>
+                <div class="form-group">
+                    <label for="maxRuns">Max Runs (optional):</label>
+                    <input type="number" id="maxRuns" name="max_runs" placeholder="Leave empty for unlimited" min="1">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('createScheduleModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i class="fas fa-question-circle"></i> ScriptPilot Help</h3>
+                <button class="modal-close" onclick="app.closeModal('helpModal')">&times;</button>
+            </div>
+            <div class="help-content">
+                <h4><i class="fas fa-keyboard"></i> Keyboard Shortcuts</h4>
+                <div class="shortcut-list">
+                    <div class="shortcut-item">
+                        <kbd>Ctrl + R</kbd>
+                        <span>Refresh current tab</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl + U</kbd>
+                        <span>Go to upload tab</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Escape</kbd>
+                        <span>Close modals</span>
+                    </div>
+                </div>
+                
+                <h4><i class="fas fa-info-circle"></i> Features</h4>
+                <ul class="feature-list">
+                    <li><strong>Auto-refresh:</strong> Automatically updates data every 30 seconds</li>
+                    <li><strong>Script Management:</strong> Upload, execute, and schedule Python, PowerShell, and Bash scripts</li>
+                    <li><strong>Execution History:</strong> View detailed logs and outputs of all script executions</li>
+                    <li><strong>Scheduling:</strong> Create recurring schedules for automated script execution</li>
+                    <li><strong>Real-time Stats:</strong> Monitor execution success rates and system activity</li>
+                </ul>
+                
+                <h4><i class="fas fa-file-code"></i> Supported File Types</h4>
+                <div class="file-types">
+                    <span class="file-type python">.py</span>
+                    <span class="file-type powershell">.ps1</span>
+                    <span class="file-type bash">.sh</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution Details Modal -->
+    <div id="executionModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> Execution Details</h3>
+                <button class="modal-close" onclick="app.closeModal('executionModal')">&times;</button>
+            </div>
+            <div id="executionDetails" class="execution-details">
+                <!-- Execution details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Editor Modal -->
+    <div id="editorModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="editorTitle">Edit Script</h3>
+                <span class="close" onclick="app.closeModal('editorModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="editor-toolbar">
+                    <div class="editor-info">
+                        <span id="editorFilename" class="editor-filename"></span>
+                        <span id="editorLanguage" class="language-badge"></span>
+                    </div>
+                    <div class="editor-actions">
+                        <button type="button" class="btn btn-secondary" onclick="app.resetEditor()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="app.saveScript()">
+                            <i class="fas fa-save"></i> Save
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="app.executeCurrentScript()">
+                            <i class="fas fa-play"></i> Run
+                        </button>
+                    </div>
+                </div>
+                <div id="codeEditor" class="code-editor"></div>
+                <div class="editor-status">
+                    <span id="editorStatus">Ready</span>
+                    <span id="cursorPosition">Line 1, Column 1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add New Script Modal -->
+    <div id="newScriptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Script</h3>
+                <span class="close" onclick="app.closeModal('newScriptModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="newScriptForm">
+                    <div class="form-group">
+                        <label for="newScriptName">Script Name:</label>
+                        <input type="text" id="newScriptName" class="form-control" placeholder="my_script.py" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newScriptLanguage">Language:</label>
+                        <select id="newScriptLanguage" class="form-control" required>
+                            <option value="python">Python (.py)</option>
+                            <option value="powershell">PowerShell (.ps1)</option>
+                            <option value="bash">Bash (.sh)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newScriptDescription">Description (optional):</label>
+                        <input type="text" id="newScriptDescription" class="form-control" placeholder="Script description">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="app.closeModal('newScriptModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create & Edit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- CodeMirror 6 JavaScript -->
+<script type="module">
+    import { EditorView, basicSetup } from 'https://cdn.jsdelivr.net/npm/codemirror@6.0.1/dist/index.js';
+    import { python } from 'https://cdn.jsdelivr.net/npm/@codemirror/lang-python@6.1.3/dist/index.js';
+    import { javascript } from 'https://cdn.jsdelivr.net/npm/@codemirror/lang-javascript@6.2.1/dist/index.js';
+    import { shell } from 'https://cdn.jsdelivr.net/npm/@codemirror/legacy-modes@6.3.3/dist/index.js';
+    import { oneDark } from 'https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.js';
+    
+    // Make CodeMirror available globally
+    window.CodeMirror = {
+        EditorView,
+        basicSetup,
+        python,
+        javascript,
+        shell,
+        oneDark
+    };
+</script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
