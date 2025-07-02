@@ -1078,14 +1078,34 @@ kbd {
 
 /* Terminal cursor animation */
 .cursor {
-    animation: blink 1s infinite;
+    animation: cursorBlink 1s infinite;
     color: #007acc;
-    font-weight: normal;
+    font-weight: bold;
+    font-size: 1.1em;
+    display: inline-block;
+    position: relative;
 }
 
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+@keyframes cursorBlink {
+    0%, 45% { 
+        opacity: 1; 
+    }
+    50%, 95% { 
+        opacity: 0; 
+    }
+    100% { 
+        opacity: 1; 
+    }
+}
+
+/* Specific header cursor animation - higher specificity */
+.header-content h1 .cursor {
+    animation: cursorBlink 1s infinite !important;
+    color: #007acc !important;
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+    display: inline-block !important;
+    position: relative !important;
 }
 
 /* Responsive Design */
