@@ -238,8 +238,8 @@ class SessionManager:
 
 def get_current_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Dependency to get current user from JWT token"""
-    from app.models import User
-    from app.database import get_session
+    from models import User
+    from database import get_session
     from sqlmodel import select
     
     credentials_exception = HTTPException(

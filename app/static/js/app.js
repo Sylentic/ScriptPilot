@@ -70,9 +70,16 @@ class ScriptPilot {
                 return;
             }
 
-            // Verify token is still valid
+            // Verify token and ensure user data is properly loaded
             const isValid = await this.verifyToken();
             if (!isValid) {
+                this.auth.redirectToLogin();
+                return;
+            }
+
+            // Ensure user data is available before proceeding
+            if (!this.auth.user) {
+                console.error('User data not available after token verification');
                 this.auth.redirectToLogin();
                 return;
             }
@@ -80,8 +87,12 @@ class ScriptPilot {
             this.setupEventListeners();
             this.setupUploadArea();
             this.updateUserInfo();
+            
+            // Initialize admin panel first to ensure proper permissions are set
+            await this.initAdminPanel();
+            
+            // Now load data with proper user context
             await this.loadInitialData();
-            await this.initAdminPanel(); // Initialize admin panel if user is admin
             this.showTab('scripts');
             this.startAutoRefresh();
             
@@ -102,6 +113,7 @@ class ScriptPilot {
             if (response.ok) {
                 const userData = await response.json();
                 this.auth.updateUser(userData);
+                console.log('User data updated:', userData.role); // Debug log
                 return true;
             }
             
@@ -397,7 +409,9 @@ class ScriptPilot {
 
     async loadScripts() {
         try {
+            console.log('Loading scripts...', 'User role:', this.auth.user?.role); // Debug log
             this.scripts = await this.apiCall('/scripts/db/');
+            console.log('Scripts loaded:', this.scripts.length); // Debug log
             
             // Render scripts immediately for faster UI
             this.renderScripts();
@@ -406,6 +420,7 @@ class ScriptPilot {
             // Load last run info in background without blocking
             this.loadLastRunInfoAsync();
         } catch (error) {
+            console.error('Error loading scripts:', error);
             this.showToast('Error loading scripts: ' + error.message, 'error');
         }
     }
@@ -1503,12 +1518,7 @@ class ScriptPilot {
     // Fetch script content separately for parallel execution
     async fetchScriptContent(scriptId) {
         console.log('Fetching script content...');
-        const response = await fetch(`${this.apiBase}/scripts/${scriptId}/content`);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to fetch script content: ${response.status} ${errorText}`);
-        }
-        return await response.json();
+        return await this.apiCall(`/scripts/${scriptId}/content`);
     }
 
     // Set editor content and language more efficiently
@@ -2190,7 +2200,7 @@ cat("Hello from ScriptPilot!\\n")
     }
 
     displayRBACMatrix(matrix) {
-        const container = document.getElementById('rbacMatrixContainer');
+                             const container = document.getElementById('rbacMatrixContainer');
         if (!container) return;
 
         const roles = ['viewer', 'editor', 'admin'];
@@ -2378,4 +2388,141 @@ cat("Hello from ScriptPilot!\\n")
             this.loadAuditLog()
         ]);
     }
+
+    // API call helper method
+    async apiCall(endpoint, options = {}) {
+        const url = `${this.apiBase}${endpoint}`;
+        const config = {
+            headers: {
+                ...this.auth.getAuthHeaders(),
+                ...(options.headers || {})
+            },
+            ...options
+        };
+
+        try {
+            const response = await fetch(url, config);
+            
+            if (!response.ok) {
+                // Handle authentication errors
+                if (response.status === 401) {
+                    this.auth.redirectToLogin();
+                    throw new Error('Authentication required');
+                }
+                
+                // Try to get error message from response
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || errorData.message || errorMessage;
+                } catch (e) {
+                    // If we can't parse the error response, use the status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                
+                throw new Error(errorMessage);
+            }
+
+            // Check if the response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                return await response.text();
+            }
+        } catch (error) {
+            console.error('API call failed:', error);
+            throw error;
+        }
+    }
+
+    // Show the loading overlay
+    showLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
+    // Hide the loading overlay
+    hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    // Show a toast notification
+    showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => toast.remove(), 500);
+        }, duration);
+    }
+
+    // Show a modal dialog
+    showModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            // Focus on first input if available
+            const firstInput = modal.querySelector('input, textarea, select');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+        }
+    }
+
+    // Close a modal dialog
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // Schedule a script for execution
+    scheduleScript(scriptId) {
+        this.createScheduleForScript(scriptId);
+    }
+
+    // Delete a script
+    async deleteScript(scriptId) {
+        if (!confirm('Are you sure you want to delete this script? This action cannot be undone.')) {
+            return;
+        }
+
+        this.showLoading();
+        try {
+            await this.apiCall(`/scripts/${scriptId}`, {
+                method: 'DELETE'
+            });
+            
+            this.showToast('Script deleted successfully!', 'success');
+            await this.loadScripts();
+            await this.loadStats();
+        } catch (error) {
+            this.showToast('Failed to delete script: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // View execution history for a script
+    viewExecutionHistory(scriptId) {
+        this.viewScriptExecutions(scriptId);
+    }
+
+    // Show help modal
+    showHelpModal() {
+        this.showModal('helpModal');
+    }
 }
+
+// Initialize the application when the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Create global app instance
+    window.app = new ScriptPilot();
+});

@@ -2,11 +2,11 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Path, Form, Query,
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from app.database import create_db_and_tables
-from app.models import Script, ExecutionHistory, Schedule, ScheduleType, ScheduleStatus, User, UserRole, AuditLog
-from app.database import get_session
-from app.auth import get_current_user_from_token, require_admin, require_admin_or_editor
-from app.auth_routes import router as auth_router
+from database import create_db_and_tables
+from models import Script, ExecutionHistory, Schedule, ScheduleType, ScheduleStatus, User, UserRole, AuditLog
+from database import get_session
+from auth import get_current_user_from_token, require_admin, require_admin_or_editor
+from auth_routes import router as auth_router
 from sqlmodel import Session
 from typing import List, Optional
 from sqlmodel import select
@@ -25,8 +25,11 @@ import json
 app = FastAPI(title="ScriptPilot", description="Automated Script Management & Scheduling Platform")
 
 # Mount static files and templates
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(current_dir, "static")
+templates_dir = os.path.join(current_dir, "templates")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+templates = Jinja2Templates(directory=templates_dir)
 
 # Include authentication routes
 app.include_router(auth_router)
@@ -44,9 +47,9 @@ async def on_startup():
 
 async def create_default_admin():
     """Create default admin user if no users exist"""
-    from app.auth import AuthUtils
+    from auth import AuthUtils
     from sqlmodel import Session
-    from app.database import engine
+    from database import engine
     
     session = Session(engine)
     try:
@@ -83,7 +86,7 @@ def on_shutdown():
     scheduler.shutdown()
 
 # Directory to store uploaded scripts
-UPLOAD_DIR = "app/scripts"
+UPLOAD_DIR = os.path.join(current_dir, "scripts")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def load_schedules_from_db():
@@ -1380,5 +1383,9 @@ def create_audit_log(
         ip_address=ip_address
     )
     session.add(audit_entry)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
 

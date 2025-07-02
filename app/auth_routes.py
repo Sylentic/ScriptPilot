@@ -7,9 +7,9 @@ from typing import Optional
 from datetime import datetime, timedelta
 import json
 
-from app.database import get_db_session
-from app.models import User, LoginAttempt, UserSession, AuditLog, UserRole
-from app.auth import (
+from database import get_db_session
+from models import User, LoginAttempt, UserSession, AuditLog, UserRole
+from auth import (
     AuthUtils, TwoFactorAuth, EmailService, SessionManager,
     get_current_user_from_token, require_admin, require_admin_or_editor
 )
