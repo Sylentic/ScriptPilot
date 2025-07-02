@@ -18,3 +18,12 @@ starlette==0.46.2
 typing-inspection==0.4.1
 typing_extensions==4.14.0
 uvicorn==0.35.0
+
+# Security dependencies
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+qrcode[pil]==7.4.2
+pyotp==2.9.0
+email-validator==2.1.0
+redis==4.6.0

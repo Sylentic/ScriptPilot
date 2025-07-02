@@ -13,7 +13,26 @@
 <body>
     <div class="container">
         <!-- Header -->
-        <header class="header">        <div class="header-content">
+        <header class="header">
+            <!-- User Info Section -->
+            <div class="user-info" id="userInfo" style="display: none;">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div class="user-details">
+                    <h3 id="userFullName">Loading...</h3>
+                    <p id="userEmail">Loading...</p>
+                </div>
+                <div class="user-role-badge" id="userRole">viewer</div>
+                <div class="user-actions">
+                    <button class="btn btn-secondary btn-small" onclick="app.showUserSettings()" title="Account Settings">
+                        <i class="fas fa-cog"></i> Settings
+                    </button>
+                    <button class="btn btn-danger btn-small" onclick="app.logout()" title="Sign Out">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+            
+            <div class="header-content">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h1><i class="fas fa-rocket"></i> ScriptPilot<span class="cursor">_</span></h1>
@@ -47,6 +66,9 @@
             </button>
             <button class="tab-btn" data-tab="executions">
                 <i class="fas fa-play"></i> Executions
+            </button>
+            <button class="tab-btn" data-tab="admin" id="adminTab" style="display: none;">
+                <i class="fas fa-users-cog"></i> Admin
             </button>
             <button class="tab-btn" data-tab="upload">
                 <i class="fas fa-upload"></i> Upload
@@ -133,6 +155,36 @@
                             <i class="fas fa-upload"></i> Upload Script
                         </button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Admin Tab -->
+            <div class="tab-content" id="admin-tab">
+                <div class="admin-panel">
+                    <div class="admin-header">
+                        <i class="fas fa-users-cog"></i>
+                        <h3>Admin Panel</h3>
+                    </div>
+                    <div class="admin-content">
+                        <div class="admin-section">
+                            <h4><i class="fas fa-users"></i> User Management</h4>
+                            <div id="usersTableContainer">
+                                <!-- User management table will be loaded here by JS -->
+                            </div>
+                        </div>
+                        <div class="admin-section">
+                            <h4><i class="fas fa-user-shield"></i> Role-Based Access Control (RBAC)</h4>
+                            <div id="rbacMatrixContainer">
+                                <!-- RBAC matrix will be loaded here by JS -->
+                            </div>
+                        </div>
+                        <div class="admin-section">
+                            <h4><i class="fas fa-clipboard-list"></i> Audit Log</h4>
+                            <div id="auditLogContainer">
+                                <!-- Audit log will be loaded here by JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -319,6 +371,135 @@
                         <button type="submit" class="btn btn-primary">Create & Edit</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Settings Modal -->
+    <div id="userSettingsModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-cog"></i> User Settings</h3>
+                <button class="modal-close" onclick="app.closeModal('userSettingsModal')">&times;</button>
+            </div>
+            <div class="modal-form">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <!-- Account Information -->
+                    <div>
+                        <h4 style="color: #007acc; margin-bottom: 20px; border-bottom: 1px solid #3c3c3c; padding-bottom: 10px;">
+                            <i class="fas fa-user"></i> Account Information
+                        </h4>
+                        
+                        <div class="form-group">
+                            <label>Username</label>
+                            <span id="settingsUsername" style="color: #d4d4d4; font-family: 'Consolas', monospace;"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <span id="settingsEmail" style="color: #d4d4d4; font-family: 'Consolas', monospace;"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Role</label>
+                            <span id="settingsRole" style="color: #007acc; font-weight: 600; text-transform: uppercase;"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="settingsFullName">Full Name</label>
+                            <input type="text" id="settingsFullName" readonly style="background: #1e1e1e; color: #888;">
+                        </div>
+                    </div>
+                    
+                    <!-- Security Settings -->
+                    <div>
+                        <h4 style="color: #007acc; margin-bottom: 20px; border-bottom: 1px solid #3c3c3c; padding-bottom: 10px;">
+                            <i class="fas fa-shield-alt"></i> Security Settings
+                        </h4>
+                        
+                        <div class="form-group">
+                            <label>Two-Factor Authentication</label>
+                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                                <span id="twoFactorStatus"></span>
+                                <button id="enable2FABtn" class="btn btn-success btn-small" onclick="app.setup2FA()">
+                                    <i class="fas fa-shield-alt"></i> Enable 2FA
+                                </button>
+                                <button id="disable2FABtn" class="btn btn-danger btn-small" onclick="app.disable2FA()" style="display: none;">
+                                    <i class="fas fa-shield-alt"></i> Disable 2FA
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Change Password</label>
+                            <form id="changePasswordForm" onsubmit="event.preventDefault(); app.changePassword();">
+                                <div style="margin-bottom: 15px;">
+                                    <input type="password" id="currentPassword" placeholder="Current Password" required style="margin-bottom: 10px;">
+                                    <input type="password" id="newPassword" placeholder="New Password" required style="margin-bottom: 10px;">
+                                    <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-small">
+                                    <i class="fas fa-key"></i> Change Password
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Setup Modal -->
+    <div id="setup2FAModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-qrcode"></i> Setup Two-Factor Authentication</h3>
+                <button class="modal-close" onclick="app.closeModal('setup2FAModal')">&times;</button>
+            </div>
+            <div class="modal-form">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h4 style="color: #007acc; margin-bottom: 15px;">Step 1: Scan QR Code</h4>
+                    <p style="color: #b3b3b3; margin-bottom: 20px;">
+                        Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+                    </p>
+                    <img id="qrCodeImage" style="max-width: 250px; border: 1px solid #3c3c3c; border-radius: 8px;">
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <h4 style="color: #007acc; margin-bottom: 15px;">Step 2: Save Backup Codes</h4>
+                    <p style="color: #b3b3b3; margin-bottom: 15px;">
+                        Save these backup codes in a secure location. You can use them to access your account if you lose your authenticator device.
+                    </p>
+                    <div id="backupCodes" style="
+                        background: #1e1e1e; 
+                        border: 1px solid #3c3c3c; 
+                        border-radius: 6px; 
+                        padding: 15px; 
+                        font-family: 'Consolas', monospace;
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        justify-content: center;
+                    "></div>
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <h4 style="color: #007acc; margin-bottom: 15px;">Step 3: Verify Setup</h4>
+                    <p style="color: #b3b3b3; margin-bottom: 15px;">
+                        Enter the 6-digit code from your authenticator app to complete setup:
+                    </p>
+                    <input type="text" id="setup2FACode" placeholder="Enter 6-digit code" maxlength="6" 
+                           style="text-align: center; font-size: 1.5rem; letter-spacing: 3px; margin-bottom: 20px;">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('setup2FAModal')">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="app.enable2FA()">
+                        <i class="fas fa-check"></i> Enable 2FA
+                    </button>
+                </div>
             </div>
         </div>
     </div>

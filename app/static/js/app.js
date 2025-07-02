@@ -1,5 +1,41 @@
 // ScriptPilot Frontend JavaScript Application
 
+class AuthManager {
+    constructor() {
+        this.token = localStorage.getItem('access_token');
+        this.user = this.getStoredUser();
+    }
+
+    getStoredUser() {
+        const userInfo = localStorage.getItem('user_info');
+        return userInfo ? JSON.parse(userInfo) : null;
+    }
+
+    isAuthenticated() {
+        return !!this.token;
+    }
+
+    getAuthHeaders() {
+        return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
+    }
+
+    logout() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_info');
+        window.location.href = '/login';
+    }
+
+    redirectToLogin() {
+        window.location.href = '/login';
+    }
+
+    updateUser(userData) {
+        this.user = userData;
+        localStorage.setItem('user_info', JSON.stringify(userData));
+    }
+}
+
 class ScriptPilot {
     constructor() {
         this.apiBase = window.location.origin;
@@ -9,6 +45,9 @@ class ScriptPilot {
         this.executions = [];
         this.autoRefreshInterval = null;
         this.autoRefreshEnabled = true;
+        
+        // Initialize authentication
+        this.auth = new AuthManager();
         
         // Editor properties
         this.editor = null;
@@ -25,9 +64,24 @@ class ScriptPilot {
 
     async init() {
         try {
+            // Check authentication first
+            if (!this.auth.isAuthenticated()) {
+                this.auth.redirectToLogin();
+                return;
+            }
+
+            // Verify token is still valid
+            const isValid = await this.verifyToken();
+            if (!isValid) {
+                this.auth.redirectToLogin();
+                return;
+            }
+
             this.setupEventListeners();
             this.setupUploadArea();
+            this.updateUserInfo();
             await this.loadInitialData();
+            await this.initAdminPanel(); // Initialize admin panel if user is admin
             this.showTab('scripts');
             this.startAutoRefresh();
             
@@ -36,6 +90,78 @@ class ScriptPilot {
         } catch (error) {
             console.error('Error during initialization:', error);
             this.showToast('Error initializing application: ' + error.message, 'error');
+        }
+    }
+
+    async verifyToken() {
+        try {
+            const response = await fetch(`${this.apiBase}/auth/me`, {
+                headers: this.auth.getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                const userData = await response.json();
+                this.auth.updateUser(userData);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Token verification failed:', error);
+            return false;
+        }
+    }
+
+    updateUserInfo() {
+        if (this.auth.user) {
+            // Update header with user info
+            const headerContent = document.querySelector('.header-content');
+            if (headerContent) {
+                const userInfoDiv = document.createElement('div');
+                userInfoDiv.className = 'user-info';
+                userInfoDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-circle" style="color: #007acc; font-size: 1.2rem;"></i>
+                            <span style="color: #d4d4d4; font-weight: 500;">
+                                ${this.auth.user.full_name || this.auth.user.username}
+                            </span>
+                            <span class="user-role" style="
+                                background: rgba(0, 122, 204, 0.2);
+                                border: 1px solid #007acc;
+                                color: #007acc;
+                                padding: 2px 8px;
+                                border-radius: 4px;
+                                font-size: 0.8rem;
+                                text-transform: uppercase;
+                                font-weight: 600;
+                            ">${this.auth.user.role}</span>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary btn-small" onclick="app.showUserSettings()" title="User Settings">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="app.logout()" title="Logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert user info after the main header content
+                const existingUserInfo = headerContent.querySelector('.user-info');
+                if (existingUserInfo) {
+                    existingUserInfo.replaceWith(userInfoDiv);
+                } else {
+                    headerContent.appendChild(userInfoDiv);
+                }
+            }
+        }
+    }
+
+    logout() {
+        if (confirm('Are you sure you want to logout?')) {
+            this.auth.logout();
         }
     }
 
@@ -543,6 +669,11 @@ class ScriptPilot {
         document.getElementById(`${tabName}-tab`).classList.add('active');
 
         this.currentTab = tabName;
+        
+        // Load admin data when switching to admin tab
+        if (tabName === 'admin') {
+            this.loadAdminData();
+        }
     }
 
     async uploadScript() {
@@ -1754,102 +1885,497 @@ cat("Hello from ScriptPilot!\\n")
         );
     }
 
-    // Utility functions
-    async apiCall(endpoint, options = {}) {
-        const response = await fetch(this.apiBase + endpoint, {
-            headers: {
-                'Accept': 'application/json',
-                ...options.headers
-            },
-            ...options
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error || `HTTP ${response.status}`);
-        }
-
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            return await response.json();
-        }
-        return await response.text();
+    // User settings methods
+    showUserSettings() {
+        this.showModal('userSettingsModal');
+        this.loadUserSettings();
     }
 
-    showModal(modalId) {
-        document.getElementById(modalId).style.display = 'flex';
-    }
-
-    closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    showLoading() {
-        document.getElementById('loadingOverlay').style.display = 'flex';
-    }
-
-    hideLoading() {
-        document.getElementById('loadingOverlay').style.display = 'none';
-    }
-
-    showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'info' ? 'info-circle' : 'exclamation-triangle'}"></i>
-                <span>${message}</span>
-            </div>
-        `;
-
-        document.getElementById('toastContainer').appendChild(toast);
-
-        setTimeout(() => {
-            toast.remove();
-        }, 5000);
-    }
-
-    showHelpModal() {
-        this.showModal('helpModal');
-    }
-
-    async viewExecutionHistory(scriptId) {
-        // Filter executions for this script and switch to executions tab
-        const scriptExecutions = this.executions.filter(exec => exec.script_id === scriptId);
-        this.renderExecutions(scriptExecutions);
-        this.showTab('executions');
-    }
-
-    scheduleScript(scriptId) {
-        this.createScheduleForScript(scriptId);
-    }
-
-    async deleteScript(scriptId) {
-        if (!confirm('Are you sure you want to delete this script? This action cannot be undone.')) {
-            return;
-        }
-
-        this.showLoading();
+    async loadUserSettings() {
         try {
-            await this.apiCall(`/scripts/${scriptId}`, {
-                method: 'DELETE'
+            const user = this.auth.user;
+            document.getElementById('settingsUsername').textContent = user.username;
+            document.getElementById('settingsEmail').textContent = user.email;
+            document.getElementById('settingsRole').textContent = user.role;
+            document.getElementById('settingsFullName').value = user.full_name || '';
+            
+            // Update 2FA status
+            const twoFactorStatus = document.getElementById('twoFactorStatus');
+            const enable2FABtn = document.getElementById('enable2FABtn');
+            const disable2FABtn = document.getElementById('disable2FABtn');
+            
+            if (user.two_factor_enabled) {
+                twoFactorStatus.innerHTML = '<i class="fas fa-check-circle" style="color: #28a745;"></i> Enabled';
+                enable2FABtn.style.display = 'none';
+                disable2FABtn.style.display = 'inline-flex';
+            } else {
+                twoFactorStatus.innerHTML = '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Disabled';
+                enable2FABtn.style.display = 'inline-flex';
+                disable2FABtn.style.display = 'none';
+            }
+        } catch (error) {
+            this.showToast('Error loading user settings: ' + error.message, 'error');
+        }
+    }
+
+    async setup2FA() {
+        try {
+            this.showLoading();
+            const response = await this.apiCall('/auth/2fa/setup', {
+                method: 'POST'
             });
             
-            // Clear cache to ensure fresh data
-            this.clearLastRunCache();
+            // Show 2FA setup modal
+            document.getElementById('qrCodeImage').src = response.qr_code;
+            document.getElementById('backupCodes').innerHTML = response.backup_codes
+                .map(code => `<code>${code}</code>`).join(' ');
             
-            this.showToast('Script deleted successfully!', 'success');
-            await this.loadScripts();
-            await this.loadStats();
+            this.closeModal('userSettingsModal');
+            this.showModal('setup2FAModal');
+            
         } catch (error) {
-            this.showToast('Failed to delete script: ' + error.message, 'error');
+            this.showToast('Error setting up 2FA: ' + error.message, 'error');
         } finally {
             this.hideLoading();
         }
     }
-}
 
-// Initialize the application when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new ScriptPilot();
-});
+    async enable2FA() {
+        const totpCode = document.getElementById('setup2FACode').value;
+        if (!totpCode || totpCode.length !== 6) {
+            this.showToast('Please enter a valid 6-digit code', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading();
+            const formData = new FormData();
+            formData.append('totp_code', totpCode);
+            
+            await this.apiCall('/auth/2fa/enable', {
+                method: 'POST',
+                body: formData
+            });
+            
+            this.showToast('2FA enabled successfully!', 'success');
+            this.closeModal('setup2FAModal');
+            
+            // Update user info
+            this.auth.user.two_factor_enabled = true;
+            this.auth.updateUser(this.auth.user);
+            
+        } catch (error) {
+            this.showToast('Error enabling 2FA: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async disable2FA() {
+        const password = prompt('Enter your password to disable 2FA:');
+        if (!password) return;
+
+        try {
+            this.showLoading();
+            const formData = new FormData();
+            formData.append('password', password);
+            
+            await this.apiCall('/auth/2fa/disable', {
+                method: 'POST',
+                body: formData
+            });
+            
+            this.showToast('2FA disabled successfully!', 'success');
+            
+            // Update user info
+            this.auth.user.two_factor_enabled = false;
+            this.auth.updateUser(this.auth.user);
+            this.loadUserSettings();
+            
+        } catch (error) {
+            this.showToast('Error disabling 2FA: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async changePassword() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            this.showToast('Please fill in all password fields', 'error');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            this.showToast('New passwords do not match', 'error');
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            this.showToast('New password must be at least 8 characters long', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading();
+            await this.apiCall('/auth/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+            
+            this.showToast('Password changed successfully!', 'success');
+            
+            // Clear form
+            document.getElementById('changePasswordForm').reset();
+            
+        } catch (error) {
+            this.showToast('Error changing password: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // Admin Panel Functions
+    async loadUserManagement() {
+        try {
+            this.showLoading();
+            const users = await this.apiCall('/auth/users');
+            this.displayUsersTable(users);
+        } catch (error) {
+            this.showToast('Error loading users: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    displayUsersTable(users) {
+        const container = document.getElementById('usersTableContainer');
+        if (!container) return;
+
+        const html = `
+            <div class="users-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>2FA</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map(user => `
+                            <tr>
+                                <td>
+                                    <div class="user-info-cell">
+                                        <div class="user-avatar-small">${user.full_name.charAt(0).toUpperCase()}</div>
+                                        <div>
+                                            <div class="user-name">${user.full_name}</div>
+                                            <div class="user-email">${user.email}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select class="role-select" data-user-id="${user.id}" onchange="app.updateUserRole(${user.id}, this.value)">
+                                        <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+                                        <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>Editor</option>
+                                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="status-select" data-user-id="${user.id}" onchange="app.updateUserStatus(${user.id}, this.value)">
+                                        <option value="active" ${user.is_active ? 'selected' : ''}>Active</option>
+                                        <option value="inactive" ${!user.is_active ? 'selected' : ''}>Inactive</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <span class="status-badge ${user.two_factor_enabled ? 'success' : 'warning'}">
+                                        ${user.two_factor_enabled ? 'Enabled' : 'Disabled'}
+                                    </span>
+                                </td>
+                                <td>
+                                    ${user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-small btn-secondary" onclick="app.viewUserAuditLog(${user.id})" title="View Audit Log">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                        <button class="btn btn-small btn-danger" onclick="app.resetUser2FA(${user.id})" title="Reset 2FA">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        container.innerHTML = html;
+    }
+
+    async updateUserRole(userId, newRole) {
+        try {
+            await this.apiCall(`/auth/users/${userId}/role`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ role: newRole })
+            });
+            this.showToast('User role updated successfully', 'success');
+        } catch (error) {
+            this.showToast('Error updating user role: ' + error.message, 'error');
+            // Reload the table to revert the change
+            this.loadUserManagement();
+        }
+    }
+
+    async updateUserStatus(userId, status) {
+        const isActive = status === 'active';
+        try {
+            await this.apiCall(`/auth/users/${userId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_active: isActive })
+            });
+            this.showToast(`User ${isActive ? 'activated' : 'deactivated'} successfully`, 'success');
+        } catch (error) {
+            this.showToast('Error updating user status: ' + error.message, 'error');
+            // Reload the table to revert the change
+            this.loadUserManagement();
+        }
+    }
+
+    async resetUser2FA(userId) {
+        if (!confirm('Are you sure you want to reset 2FA for this user? They will need to set it up again.')) {
+            return;
+        }
+
+        try {
+            await this.apiCall(`/auth/users/${userId}/reset-2fa`, {
+                method: 'POST'
+            });
+            this.showToast('2FA reset successfully', 'success');
+            this.loadUserManagement(); // Reload to update the table
+        } catch (error) {
+            this.showToast('Error resetting 2FA: ' + error.message, 'error');
+        }
+    }
+
+    async loadRBACMatrix() {
+        try {
+            this.showLoading();
+            const matrix = await this.apiCall('/auth/rbac-matrix');
+            this.displayRBACMatrix(matrix);
+        } catch (error) {
+            this.showToast('Error loading RBAC matrix: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    displayRBACMatrix(matrix) {
+        const container = document.getElementById('rbacMatrixContainer');
+        if (!container) return;
+
+        const roles = ['viewer', 'editor', 'admin'];
+        const permissions = [
+            'scripts:read', 'scripts:write', 'scripts:delete', 'scripts:execute',
+            'schedules:read', 'schedules:write', 'schedules:delete',
+            'executions:read',
+            'users:read', 'users:write', 'audit:read'
+        ];
+
+        const html = `
+            <div class="rbac-matrix">
+                <table class="data-table rbac-table">
+                    <thead>
+                        <tr>
+                            <th>Permission</th>
+                            ${roles.map(role => `<th class="role-header">${role.charAt(0).toUpperCase() + role.slice(1)}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${permissions.map(permission => `
+                            <tr>
+                                <td class="permission-name">${permission}</td>
+                                ${roles.map(role => {
+                                    const hasPermission = matrix[role] && matrix[role].includes(permission);
+                                    return `
+                                        <td class="permission-cell">
+                                            <span class="permission-indicator ${hasPermission ? 'granted' : 'denied'}">
+                                                <i class="fas ${hasPermission ? 'fa-check' : 'fa-times'}"></i>
+                                            </span>
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        container.innerHTML = html;
+    }
+
+    async loadAuditLog() {
+        try {
+            this.showLoading();
+            const logs = await this.apiCall('/auth/audit-logs');
+            this.displayAuditLog(logs);
+        } catch (error) {
+            this.showToast('Error loading audit log: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    displayAuditLog(logs) {
+        const container = document.getElementById('auditLogContainer');
+        if (!container) return;
+
+        const html = `
+            <div class="audit-log">
+                <div class="audit-controls">
+                    <input type="text" id="auditSearch" placeholder="Search audit logs..." class="search-input">
+                    <select id="auditActionFilter" class="filter-select">
+                        <option value="">All Actions</option>
+                        <option value="login">Login</option>
+                        <option value="logout">Logout</option>
+                        <option value="script_upload">Script Upload</option>
+                        <option value="script_execute">Script Execute</option>
+                        <option value="script_delete">Script Delete</option>
+                        <option value="schedule_create">Schedule Create</option>
+                        <option value="schedule_delete">Schedule Delete</option>
+                        <option value="user_role_change">User Role Change</option>
+                        <option value="user_status_change">User Status Change</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="app.loadAuditLog()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+                <table class="data-table audit-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Resource</th>
+                            <th>IP Address</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logs.map(log => `
+                            <tr>
+                                <td class="timestamp">${new Date(log.timestamp).toLocaleString()}</td>
+                                <td class="user-cell">
+                                    <div class="user-avatar-tiny">${log.user_email.charAt(0).toUpperCase()}</div>
+                                    <span>${log.user_email}</span>
+                                </td>
+                                <td>
+                                    <span class="action-badge action-${log.action.replace('_', '-')}">${log.action.replace('_', ' ')}</span>
+                                </td>
+                                <td>${log.resource || '-'}</td>
+                                <td class="ip-address">${log.ip_address || '-'}</td>
+                                <td class="details">${log.details || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        container.innerHTML = html;
+
+        // Add search and filter functionality
+        this.setupAuditLogFilters();
+    }
+
+    setupAuditLogFilters() {
+        const searchInput = document.getElementById('auditSearch');
+        const actionFilter = document.getElementById('auditActionFilter');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', () => this.filterAuditLog());
+        }
+        
+        if (actionFilter) {
+            actionFilter.addEventListener('change', () => this.filterAuditLog());
+        }
+    }
+
+    filterAuditLog() {
+        const searchTerm = document.getElementById('auditSearch')?.value.toLowerCase() || '';
+        const actionFilter = document.getElementById('auditActionFilter')?.value || '';
+        const rows = document.querySelectorAll('.audit-table tbody tr');
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            const rowText = Array.from(cells).map(cell => cell.textContent.toLowerCase()).join(' ');
+            const action = cells[2]?.textContent.toLowerCase().replace(' ', '_') || '';
+            
+            const matchesSearch = !searchTerm || rowText.includes(searchTerm);
+            const matchesAction = !actionFilter || action.includes(actionFilter);
+            
+            row.style.display = matchesSearch && matchesAction ? '' : 'none';
+        });
+    }
+
+    async viewUserAuditLog(userId) {
+        try {
+            this.showLoading();
+            const logs = await this.apiCall(`/auth/audit-logs?user_id=${userId}`);
+            // Create a modal or separate view for user-specific audit log
+            this.showUserAuditModal(logs);
+        } catch (error) {
+            this.showToast('Error loading user audit log: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    showUserAuditModal(logs) {
+        // This would create a modal with user-specific audit logs
+        // For now, we'll just show a toast with the count
+        this.showToast(`Found ${logs.length} audit log entries for this user`, 'info');
+    }
+
+    // Admin panel initialization
+    async initAdminPanel() {
+        if (this.auth.user && (this.auth.user.role === 'admin')) {
+            // Show admin tab
+            const adminTab = document.getElementById('adminTab');
+            if (adminTab) {
+                adminTab.style.display = 'block';
+            }
+            
+            // Load admin data when admin tab is selected
+            if (this.currentTab === 'admin') {
+                await this.loadAdminData();
+            }
+        }
+    }
+
+    async loadAdminData() {
+        await Promise.all([
+            this.loadUserManagement(),
+            this.loadRBACMatrix(),
+            this.loadAuditLog()
+        ]);
+    }
+}

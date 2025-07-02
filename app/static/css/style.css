@@ -2014,3 +2014,687 @@ kbd {
     0%, 100% { opacity: 0.3; }
     50% { opacity: 1; }
 }
+
+/* User Authentication & Settings Styles */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 20px;
+    background: #2d2d30;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #007acc, #0099ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.user-details h3 {
+    color: #007acc;
+    margin: 0 0 5px 0;
+    font-size: 1.1rem;
+}
+
+.user-details p {
+    color: #b3b3b3;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.user-role-badge {
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 1px solid;
+}
+
+.role-admin {
+    background: rgba(220, 53, 69, 0.2);
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.role-editor {
+    background: rgba(255, 193, 7, 0.2);
+    border-color: #ffc107;
+    color: #ffc107;
+}
+
+.role-viewer {
+    background: rgba(0, 122, 204, 0.2);
+    border-color: #007acc;
+    color: #007acc;
+}
+
+.user-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+}
+
+/* User Settings Modal */
+.user-settings-content {
+    padding: 30px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.settings-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #3c3c3c;
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.settings-section h4 {
+    color: #007acc;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid #333;
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.setting-info h5 {
+    color: #d4d4d4;
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.setting-info p {
+    color: #888;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Two-Factor Authentication Styles */
+.twofa-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.twofa-enabled {
+    color: #28a745;
+}
+
+.twofa-disabled {
+    color: #dc3545;
+}
+
+.twofa-setup {
+    background: #2d2d30;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.qr-code {
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.backup-codes {
+    background: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.backup-codes h5 {
+    color: #ffc107;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.backup-codes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.backup-code {
+    background: #252526;
+    border: 1px solid #3c3c3c;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-align: center;
+    font-family: 'Consolas', monospace;
+    font-size: 0.9rem;
+    color: #d4d4d4;
+}
+
+.backup-warning {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+    color: #ffc107;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 15px 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Security Indicators */
+.security-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.security-high {
+    color: #28a745;
+}
+
+.security-medium {
+    color: #ffc107;
+}
+
+.security-low {
+    color: #dc3545;
+}
+
+.security-shield {
+    font-size: 1.1rem;
+}
+
+/* Password Strength Indicator */
+.password-strength {
+    margin-top: 8px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.password-strength-bar {
+    height: 100%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.strength-weak .password-strength-bar {
+    width: 25%;
+    background: #dc3545;
+}
+
+.strength-fair .password-strength-bar {
+    width: 50%;
+    background: #ffc107;
+}
+
+.strength-good .password-strength-bar {
+    width: 75%;
+    background: #17a2b8;
+}
+
+.strength-strong .password-strength-bar {
+    width: 100%;
+    background: #28a745;
+}
+
+.password-requirements {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.password-requirements ul {
+    margin: 5px 0;
+    padding-left: 20px;
+}
+
+.password-requirements li {
+    margin: 2px 0;
+    color: #dc3545;
+    transition: color 0.3s ease;
+}
+
+.password-requirements li.valid {
+    color: #28a745;
+}
+
+/* Admin Panel Styles */
+.admin-panel {
+    background: #2d2d30;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #3c3c3c;
+}
+
+.admin-header i {
+    color: #007acc;
+    font-size: 1.5rem;
+}
+
+.admin-header h3 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.admin-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.admin-section {
+    background: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    padding: 20px;
+}
+
+.admin-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #007acc;
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.admin-section h4 i {
+    color: #007acc;
+}
+
+/* User Management Table */
+.users-table {
+    background: #2d2d30;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+}
+
+.data-table th {
+    background: #3c3c3c;
+    color: #ffffff;
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid #4a4a4a;
+    font-size: 0.9rem;
+}
+
+.data-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #3c3c3c;
+    color: #d4d4d4;
+    vertical-align: middle;
+}
+
+.data-table tr:hover {
+    background: rgba(0, 122, 204, 0.1);
+}
+
+.user-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-avatar-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007acc, #005a9e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.user-avatar-tiny {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007acc, #005a9e);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.7rem;
+    margin-right: 8px;
+}
+
+.user-name {
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.user-email {
+    font-size: 0.8rem;
+    color: #b3b3b3;
+}
+
+.role-select,
+.status-select {
+    background: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    color: #d4d4d4;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    min-width: 100px;
+}
+
+.role-select:focus,
+.status-select:focus {
+    border-color: #007acc;
+    outline: none;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.success {
+    background: rgba(72, 187, 120, 0.2);
+    color: #48bb78;
+    border: 1px solid #48bb78;
+}
+
+.status-badge.warning {
+    background: rgba(237, 137, 54, 0.2);
+    color: #ed8936;
+    border: 1px solid #ed8936;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-small {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    min-width: auto;
+}
+
+/* RBAC Matrix */
+.rbac-matrix {
+    background: #2d2d30;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.rbac-table th.role-header {
+    background: #007acc;
+    color: white;
+    text-align: center;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.permission-name {
+    font-family: 'Consolas', monospace;
+    color: #569cd6;
+    font-weight: 500;
+}
+
+.permission-cell {
+    text-align: center;
+    padding: 8px;
+}
+
+.permission-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 0.8rem;
+}
+
+.permission-indicator.granted {
+    background: rgba(72, 187, 120, 0.2);
+    color: #48bb78;
+    border: 1px solid #48bb78;
+}
+
+.permission-indicator.denied {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+
+/* Audit Log */
+.audit-log {
+    background: #2d2d30;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.audit-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.search-input {
+    flex: 1;
+    min-width: 200px;
+    background: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    color: #d4d4d4;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.search-input:focus {
+    border-color: #007acc;
+    outline: none;
+}
+
+.filter-select {
+    background: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    color: #d4d4d4;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-width: 150px;
+}
+
+.filter-select:focus {
+    border-color: #007acc;
+    outline: none;
+}
+
+.audit-table .timestamp {
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #b3b3b3;
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.action-badge.action-login {
+    background: rgba(72, 187, 120, 0.2);
+    color: #48bb78;
+}
+
+.action-badge.action-logout {
+    background: rgba(237, 137, 54, 0.2);
+    color: #ed8936;
+}
+
+.action-badge.action-script-upload,
+.action-badge.action-script-execute {
+    background: rgba(0, 122, 204, 0.2);
+    color: #007acc;
+}
+
+.action-badge.action-script-delete,
+.action-badge.action-schedule-delete {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.action-badge.action-schedule-create {
+    background: rgba(104, 211, 145, 0.2);
+    color: #68d391;
+}
+
+.action-badge.action-user-role-change,
+.action-badge.action-user-status-change {
+    background: rgba(159, 122, 234, 0.2);
+    color: #9f7aea;
+}
+
+.ip-address {
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #569cd6;
+}
+
+.details {
+    font-size: 0.8rem;
+    color: #b3b3b3;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Responsive Admin Panel */
+@media (max-width: 1200px) {
+    .admin-content {
+        gap: 20px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+    
+    .audit-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-input,
+    .filter-select {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-panel {
+        padding: 15px;
+    }
+    
+    .admin-section {
+        padding: 15px;
+    }
+    
+    .data-table {
+        font-size: 0.75rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 6px 8px;
+    }
+    
+    .user-info-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .details {
+        max-width: 100px;
+    }
+}
