@@ -6,9 +6,9 @@
     <title>ScriptPilot - Automation Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- CodeMirror 6 CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/view@6.22.1/dist/index.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.css">
+    <!-- CodeMirror 5 CSS (more stable) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
 </head>
 <body>
     <div class="container">
@@ -320,26 +320,15 @@
     <!-- Toast notifications -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- CodeMirror 6 JavaScript -->
-<script type="module">
-    import { EditorView, basicSetup } from 'https://cdn.jsdelivr.net/npm/codemirror@6.0.1/dist/index.js';
-    import { python } from 'https://cdn.jsdelivr.net/npm/@codemirror/lang-python@6.1.3/dist/index.js';
-    import { javascript } from 'https://cdn.jsdelivr.net/npm/@codemirror/lang-javascript@6.2.1/dist/index.js';
-    import { StreamLanguage } from 'https://cdn.jsdelivr.net/npm/@codemirror/language@6.8.0/dist/index.js';
-    import { shell, powerShell } from 'https://cdn.jsdelivr.net/npm/@codemirror/legacy-modes@6.3.3/dist/index.js';
-    import { oneDark } from 'https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.js';
-    
-    // Make CodeMirror available globally
-    window.CodeMirror = {
-        EditorView,
-        basicSetup,
-        python,
-        javascript,
-        shell: () => StreamLanguage.define(shell),
-        powerShell: () => StreamLanguage.define(powerShell),
-        oneDark
-    };
-</script>
+    <!-- CodeMirror 5 JavaScript (more stable) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/powershell/powershell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
     <script src="/static/js/editor.js"></script>
     <script src="/static/js/app.js"></script>
 </body>

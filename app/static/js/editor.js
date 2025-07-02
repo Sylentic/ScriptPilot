@@ -1,13 +1,13 @@
 // ScriptPilot Code Editor Utilities
-// This file contains additional editor-related utilities and extensions
+// This file contains CodeMirror 5 editor utilities and extensions
 
 // Debug function to test CodeMirror availability
 function testCodeMirror() {
-    if (window.CodeMirror) {
-        console.log('CodeMirror is available:', Object.keys(window.CodeMirror));
+    if (window.CodeMirror && typeof window.CodeMirror === 'function') {
+        console.log('CodeMirror 5 is available:', Object.keys(window.CodeMirror));
         return true;
     } else {
-        console.error('CodeMirror is not available');
+        console.error('CodeMirror 5 is not available');
         return false;
     }
 }
@@ -17,16 +17,18 @@ function createTestEditor() {
     if (!testCodeMirror()) return;
     
     try {
-        const { EditorView, basicSetup, oneDark } = window.CodeMirror;
-        
         const testContainer = document.createElement('div');
         testContainer.style.cssText = 'height: 200px; border: 1px solid #ccc; margin: 10px;';
         document.body.appendChild(testContainer);
         
-        const editor = new EditorView({
-            extensions: [basicSetup, oneDark],
-            doc: 'print("Hello from test editor!")',
-            parent: testContainer
+        const editor = window.CodeMirror(testContainer, {
+            value: 'print("Hello from test editor!")',
+            mode: 'python',
+            theme: 'monokai',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            styleActiveLine: true
         });
         
         console.log('Test editor created successfully:', editor);
@@ -106,7 +108,7 @@ function waitForCodeMirror(callback, maxAttempts = 50) {
     const check = () => {
         attempts++;
         
-        if (window.CodeMirror) {
+        if (window.CodeMirror && typeof window.CodeMirror === 'function') {
             console.log(`CodeMirror ready after ${attempts} attempts`);
             callback(true);
         } else if (attempts >= maxAttempts) {
@@ -120,8 +122,66 @@ function waitForCodeMirror(callback, maxAttempts = 50) {
     check();
 }
 
+// Create a CodeMirror 5 editor
+function createCodeMirrorEditor(container, content = '', language = 'python') {
+    if (!window.CodeMirror) {
+        console.error('CodeMirror not available');
+        return null;
+    }
+    
+    // Map language to CodeMirror mode
+    const modeMap = {
+        'python': 'python',
+        'powershell': 'powershell',
+        'bash': 'shell',
+        'sh': 'shell',
+        'javascript': 'javascript',
+        'js': 'javascript'
+    };
+    
+    const mode = modeMap[language.toLowerCase()] || 'python';
+    
+    try {
+        const editor = window.CodeMirror(container, {
+            value: content,
+            mode: mode,
+            theme: 'monokai',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            styleActiveLine: true,
+            indentUnit: 4,
+            tabSize: 4,
+            lineWrapping: false,
+            extraKeys: {
+                "Tab": "indentMore",
+                "Shift-Tab": "indentLess"
+            }
+        });
+        
+        // Add event listeners for cursor tracking
+        editor.on('cursorActivity', () => {
+            if (window.app && window.app.updateCursorPosition) {
+                window.app.updateCursorPosition();
+            }
+        });
+        
+        editor.on('change', () => {
+            if (window.app && window.app.updateEditorStatus) {
+                window.app.updateEditorStatus();
+            }
+        });
+        
+        return editor;
+    } catch (error) {
+        console.error('Error creating CodeMirror editor:', error);
+        return null;
+    }
+}
+
 // Make functions available globally for debugging and use
 window.testCodeMirror = testCodeMirror;
 window.createTestEditor = createTestEditor;
 window.createFallbackEditor = createFallbackEditor;
 window.waitForCodeMirror = waitForCodeMirror;
+window.createCodeMirrorEditor = createCodeMirrorEditor;

@@ -1181,7 +1181,6 @@ class ScriptPilot {
 
                 try {
                     console.log('Initializing CodeMirror editor...');
-                    const { EditorView, basicSetup, oneDark } = window.CodeMirror;
                     
                     const container = document.getElementById('codeEditor');
                     if (!container) {
@@ -1191,25 +1190,16 @@ class ScriptPilot {
                     // Clear any existing content including loading indicator
                     container.innerHTML = '';
                     
-                    // Create the editor with basic setup
-                    this.editor = new EditorView({
-                        extensions: [
-                            basicSetup,
-                            oneDark,
-                            EditorView.updateListener.of((update) => {
-                                if (update.docChanged && this.updateEditorStatus) {
-                                    this.updateEditorStatus();
-                                }
-                                if (update.selectionSet && this.updateCursorPosition) {
-                                    this.updateCursorPosition();
-                                }
-                            })
-                        ],
-                        parent: container
-                    });
+                    // Create the editor using CodeMirror 5
+                    this.editor = window.createCodeMirrorEditor(container, '', 'python');
                     
-                    console.log('CodeMirror editor initialized successfully');
-                    this.editorType = 'codemirror';
+                    if (this.editor) {
+                        console.log('CodeMirror editor initialized successfully');
+                        this.editorType = 'codemirror';
+                    } else {
+                        throw new Error('Failed to create CodeMirror editor');
+                    }
+                    
                     resolve();
                 } catch (error) {
                     console.error('Error initializing CodeMirror editor:', error);
@@ -1267,10 +1257,9 @@ class ScriptPilot {
         
         try {
             if (this.editorType === 'codemirror') {
-                const pos = this.editor.state.selection.main.head;
-                const line = this.editor.state.doc.lineAt(pos);
-                const col = pos - line.from + 1;
-                positionEl.textContent = `Line ${line.number}, Column ${col}`;
+                // For CodeMirror 5
+                const cursor = this.editor.getCursor();
+                positionEl.textContent = `Line ${cursor.line + 1}, Column ${cursor.ch + 1}`;
             } else {
                 // For textarea fallback
                 const textarea = this.editor.getElement();
@@ -1290,42 +1279,22 @@ class ScriptPilot {
         if (!this.editor || !window.CodeMirror || this.editorType !== 'codemirror') return;
         
         try {
-            const { python, javascript, shell, powerShell } = window.CodeMirror;
-            let langExtension;
+            // Map language to CodeMirror mode
+            const modeMap = {
+                'python': 'python',
+                'powershell': 'powershell',
+                'bash': 'shell',
+                'sh': 'shell',
+                'javascript': 'javascript',
+                'js': 'javascript'
+            };
             
-            switch (language.toLowerCase()) {
-                case 'python':
-                    langExtension = python();
-                    break;
-                case 'javascript':
-                    langExtension = javascript();
-                    break;
-                case 'powershell':
-                    langExtension = powerShell();
-                    break;
-                case 'bash':
-                    langExtension = shell();
-                    break;
-                default:
-                    return;
-            }
+            const mode = modeMap[language.toLowerCase()] || 'python';
             
-            // Reconfigure the editor with the new language
-            this.editor.dispatch({
-                effects: this.editor.state.reconfigure([
-                    window.CodeMirror.basicSetup,
-                    window.CodeMirror.oneDark,
-                    langExtension,
-                    window.CodeMirror.EditorView.updateListener.of((update) => {
-                        if (update.docChanged && this.updateEditorStatus) {
-                            this.updateEditorStatus();
-                        }
-                        if (update.selectionSet && this.updateCursorPosition) {
-                            this.updateCursorPosition();
-                        }
-                    })
-                ])
-            });
+            // Set the mode for CodeMirror 5
+            this.editor.setOption('mode', mode);
+            
+            console.log(`Editor language set to: ${language} (mode: ${mode})`);
         } catch (error) {
             console.error('Error setting editor language:', error);
         }
@@ -1410,51 +1379,23 @@ class ScriptPilot {
     setEditorContentAndLanguage(script) {
         console.log('Setting editor content...');
         if (this.editorType === 'codemirror') {
-            // Set content and language in one operation for better performance
-            const { python, javascript, shell, powerShell } = window.CodeMirror || {};
-            let langExtension = null;
+            // Map language to CodeMirror mode
+            const modeMap = {
+                'python': 'python',
+                'powershell': 'powershell',
+                'bash': 'shell',
+                'sh': 'shell',
+                'javascript': 'javascript',
+                'js': 'javascript'
+            };
             
-            switch (script.language.toLowerCase()) {
-                case 'python':
-                    langExtension = python ? python() : null;
-                    break;
-                case 'javascript':
-                    langExtension = javascript ? javascript() : null;
-                    break;
-                case 'powershell':
-                    langExtension = powerShell ? powerShell() : null;
-                    break;
-                case 'bash':
-                    langExtension = shell ? shell() : null;
-                    break;
-            }
-
-            // Update content and reconfigure with language in one transaction
-            const extensions = [
-                window.CodeMirror.basicSetup,
-                window.CodeMirror.oneDark,
-                window.CodeMirror.EditorView.updateListener.of((update) => {
-                    if (update.docChanged && this.updateEditorStatus) {
-                        this.updateEditorStatus();
-                    }
-                    if (update.selectionSet && this.updateCursorPosition) {
-                        this.updateCursorPosition();
-                    }
-                })
-            ];
+            const mode = modeMap[script.language.toLowerCase()] || 'python';
             
-            if (langExtension) {
-                extensions.push(langExtension);
-            }
-
-            this.editor.dispatch({
-                changes: {
-                    from: 0,
-                    to: this.editor.state.doc.length,
-                    insert: this.originalContent
-                },
-                effects: this.editor.state.reconfigure(extensions)
-            });
+            // Set content and mode for CodeMirror 5
+            this.editor.setValue(this.originalContent);
+            this.editor.setOption('mode', mode);
+            
+            console.log(`Editor content and language set: ${script.language} (mode: ${mode})`);
         } else {
             this.editor.setValue(this.originalContent);
         }
