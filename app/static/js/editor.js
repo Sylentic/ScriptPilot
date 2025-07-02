@@ -130,17 +130,22 @@ function createCodeMirrorEditor(container, content = '', language = 'python') {
         return null;
     }
     
-    // Map language to CodeMirror mode with fallbacks
+    // Map language to CodeMirror mode with extended support
     const modeMap = {
         'python': 'text/x-python',
         'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
         'bash': 'text/x-sh',
         'sh': 'text/x-sh',
         'javascript': 'text/javascript',
-        'js': 'text/javascript'
+        'js': 'text/javascript',
+        'batch': 'text/x-sh', // Use shell mode for batch files
+        'ruby': 'text/x-ruby',
+        'php': 'text/x-php',
+        'perl': 'text/x-perl',
+        'r': 'text/x-rsrc'
     };
     
-    const mode = modeMap[language.toLowerCase()] || 'text/x-python';
+    const mode = modeMap[language.toLowerCase()] || 'text/plain';
     
     try {
         console.log(`Creating CodeMirror editor with mode: ${mode} for language: ${language}`);

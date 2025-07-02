@@ -122,8 +122,8 @@
                         <div class="upload-area" id="uploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
                             <h3>Drop your script here or click to browse</h3>
-                            <p>Supported formats: .py, .ps1, .sh</p>
-                            <input type="file" id="fileInput" name="file" accept=".py,.ps1,.sh" hidden>
+                            <p>Supported formats: .py, .ps1, .sh, .js, .bat, .cmd, .rb, .php, .pl, .r</p>
+                            <input type="file" id="fileInput" name="file" accept=".py,.ps1,.sh,.js,.bat,.cmd,.rb,.php,.pl,.r" hidden>
                         </div>
                         <div class="form-group">
                             <label for="description">Description:</label>
@@ -209,7 +209,7 @@
                 <h4><i class="fas fa-info-circle"></i> Features</h4>
                 <ul class="feature-list">
                     <li><strong>Auto-refresh:</strong> Automatically updates data every 30 seconds</li>
-                    <li><strong>Script Management:</strong> Upload, execute, and schedule Python, PowerShell, and Bash scripts</li>
+                    <li><strong>Script Management:</strong> Upload, execute, and schedule scripts in Python, PowerShell, Bash, JavaScript, Batch, Ruby, PHP, Perl, and R</li>
                     <li><strong>Execution History:</strong> View detailed logs and outputs of all script executions</li>
                     <li><strong>Scheduling:</strong> Create recurring schedules for automated script execution</li>
                     <li><strong>Real-time Stats:</strong> Monitor execution success rates and system activity</li>
@@ -220,6 +220,12 @@
                     <span class="file-type python">.py</span>
                     <span class="file-type powershell">.ps1</span>
                     <span class="file-type bash">.sh</span>
+                    <span class="file-type javascript">.js</span>
+                    <span class="file-type batch">.bat</span>
+                    <span class="file-type ruby">.rb</span>
+                    <span class="file-type php">.php</span>
+                    <span class="file-type perl">.pl</span>
+                    <span class="file-type r">.r</span>
                 </div>
             </div>
         </div>
@@ -288,7 +294,7 @@
                 <form id="newScriptForm">
                     <div class="form-group">
                         <label for="newScriptName">Script Name:</label>
-                        <input type="text" id="newScriptName" placeholder="my_script.py" required>
+                        <input type="text" id="newScriptName" placeholder="my_script" required>
                     </div>
                     <div class="form-group">
                         <label for="newScriptLanguage">Language:</label>
@@ -296,6 +302,12 @@
                             <option value="python">Python (.py)</option>
                             <option value="powershell">PowerShell (.ps1)</option>
                             <option value="bash">Bash (.sh)</option>
+                            <option value="javascript">JavaScript (.js)</option>
+                            <option value="batch">Batch (.bat)</option>
+                            <option value="ruby">Ruby (.rb)</option>
+                            <option value="php">PHP (.php)</option>
+                            <option value="perl">Perl (.pl)</option>
+                            <option value="r">R (.r)</option>
                         </select>
                     </div>
                     <div class="form-group">

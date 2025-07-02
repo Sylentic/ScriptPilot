@@ -566,7 +566,7 @@ class ScriptPilot {
             document.getElementById('uploadArea').innerHTML = `
                 <i class="fas fa-cloud-upload-alt"></i>
                 <h3>Drop your script here or click to browse</h3>
-                <p>Supported formats: .py, .ps1, .sh</p>
+                <p>Supported formats: .py, .ps1, .sh, .js, .bat, .cmd, .rb, .php, .pl, .r</p>
             `;
             
             await this.loadScripts();
@@ -1279,17 +1279,22 @@ class ScriptPilot {
         if (!this.editor || !window.CodeMirror || this.editorType !== 'codemirror') return;
         
         try {
-            // Map language to CodeMirror MIME type with fallbacks
+            // Map language to CodeMirror MIME type with extended support
             const modeMap = {
                 'python': 'text/x-python',
                 'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
                 'bash': 'text/x-sh',
                 'sh': 'text/x-sh',
                 'javascript': 'text/javascript',
-                'js': 'text/javascript'
+                'js': 'text/javascript',
+                'batch': 'text/x-sh', // Use shell mode for batch files
+                'ruby': 'text/x-ruby',
+                'php': 'text/x-php',
+                'perl': 'text/x-perl',
+                'r': 'text/x-rsrc'
             };
             
-            const mode = modeMap[language.toLowerCase()] || 'text/x-python';
+            const mode = modeMap[language.toLowerCase()] || 'text/plain';
             
             // Set the mode for CodeMirror 5
             this.editor.setOption('mode', mode);
@@ -1379,17 +1384,22 @@ class ScriptPilot {
     setEditorContentAndLanguage(script) {
         console.log('Setting editor content...');
         if (this.editorType === 'codemirror') {
-            // Map language to CodeMirror MIME type with fallbacks
+            // Map language to CodeMirror MIME type with extended support
             const modeMap = {
                 'python': 'text/x-python',
                 'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
                 'bash': 'text/x-sh',
                 'sh': 'text/x-sh',
                 'javascript': 'text/javascript',
-                'js': 'text/javascript'
+                'js': 'text/javascript',
+                'batch': 'text/x-sh', // Use shell mode for batch files
+                'ruby': 'text/x-ruby',
+                'php': 'text/x-php',
+                'perl': 'text/x-perl',
+                'r': 'text/x-rsrc'
             };
             
-            const mode = modeMap[script.language.toLowerCase()] || 'text/x-python';
+            const mode = modeMap[script.language.toLowerCase()] || 'text/plain';
             
             // Set content and mode for CodeMirror 5
             this.editor.setValue(this.originalContent);
@@ -1408,18 +1418,39 @@ class ScriptPilot {
     async handleNewScriptForm(event) {
         event.preventDefault();
         
-        const name = document.getElementById('newScriptName').value;
+        const name = document.getElementById('newScriptName').value.trim();
         const language = document.getElementById('newScriptLanguage').value;
         const description = document.getElementById('newScriptDescription').value;
         
-        // Validate file extension
-        const expectedExt = language === 'python' ? '.py' : 
-                           language === 'powershell' ? '.ps1' : 
-                           language === 'bash' ? '.sh' : '';
+        // Map language to file extension
+        const extensionMap = {
+            'python': '.py',
+            'powershell': '.ps1', 
+            'bash': '.sh',
+            'javascript': '.js',
+            'batch': '.bat',
+            'ruby': '.rb',
+            'php': '.php',
+            'perl': '.pl',
+            'r': '.r'
+        };
         
-        if (!name.endsWith(expectedExt)) {
-            this.showToast(`Filename must end with ${expectedExt}`, 'error');
+        const expectedExt = extensionMap[language];
+        
+        if (!expectedExt) {
+            this.showToast('Unsupported language selected', 'error');
             return;
+        }
+        
+        // Auto-append file extension if not present
+        let finalName = name;
+        if (!name.endsWith(expectedExt)) {
+            // Remove any existing extension first
+            const lastDotIndex = name.lastIndexOf('.');
+            if (lastDotIndex > 0) {
+                finalName = name.substring(0, lastDotIndex);
+            }
+            finalName += expectedExt;
         }
         
         try {
@@ -1429,14 +1460,14 @@ class ScriptPilot {
             this.showEditorLoading(true);
             
             // Update UI immediately
-            document.getElementById('editorTitle').textContent = `New Script - ${name}`;
-            document.getElementById('editorFilename').textContent = name;
+            document.getElementById('editorTitle').textContent = `New Script - ${finalName}`;
+            document.getElementById('editorFilename').textContent = finalName;
             document.getElementById('editorLanguage').textContent = language.toUpperCase();
             document.getElementById('editorLanguage').className = `language-badge lang-${language}`;
             
             // Create a temporary script object
             this.currentScript = {
-                filename: name,
+                filename: finalName,
                 language: language,
                 description: description,
                 content: this.getLanguageTemplate(language)
@@ -1489,6 +1520,56 @@ Write-Host "Hello from ScriptPilot!"
 # Description: 
 
 echo "Hello from ScriptPilot!"
+# Your code here
+`;
+            case 'javascript':
+                return `// JavaScript Script
+// Description: 
+
+console.log("Hello from ScriptPilot!");
+// Your code here
+`;
+            case 'batch':
+                return `@echo off
+REM Batch Script
+REM Description: 
+
+echo Hello from ScriptPilot!
+REM Your code here
+`;
+            case 'ruby':
+                return `#!/usr/bin/env ruby
+# Ruby Script
+# Description: 
+
+puts "Hello from ScriptPilot!"
+# Your code here
+`;
+            case 'php':
+                return `<?php
+// PHP Script
+// Description: 
+
+echo "Hello from ScriptPilot!\\n";
+// Your code here
+?>
+`;
+            case 'perl':
+                return `#!/usr/bin/env perl
+# Perl Script
+# Description: 
+
+use strict;
+use warnings;
+
+print "Hello from ScriptPilot!\\n";
+# Your code here
+`;
+            case 'r':
+                return `# R Script
+# Description: 
+
+cat("Hello from ScriptPilot!\\n")
 # Your code here
 `;
             default:

@@ -143,7 +143,7 @@ def execute_scheduled_script(schedule_id: int):
                 print(f"Script file not found: {file_path}")
                 return
             
-            # Determine command
+            # Determine command based on file extension
             file_ext = os.path.splitext(script.filename)[1].lower()
             if file_ext == ".py":
                 command = ["python", script.filename]
@@ -151,6 +151,18 @@ def execute_scheduled_script(schedule_id: int):
                 command = ["powershell", "-ExecutionPolicy", "Bypass", "-File", script.filename]
             elif file_ext == ".sh":
                 command = ["bash", script.filename]
+            elif file_ext == ".js":
+                command = ["node", script.filename]
+            elif file_ext in [".bat", ".cmd"]:
+                command = ["cmd", "/c", script.filename]
+            elif file_ext == ".rb":
+                command = ["ruby", script.filename]
+            elif file_ext == ".php":
+                command = ["php", script.filename]
+            elif file_ext == ".pl":
+                command = ["perl", script.filename]
+            elif file_ext == ".r":
+                command = ["Rscript", script.filename]
             else:
                 print(f"Unsupported script type: {file_ext}")
                 return
@@ -244,19 +256,29 @@ async def upload_script(
     filename = file.filename
     file_ext = os.path.splitext(filename)[1].lower()
 
-    if file_ext not in [".py", ".ps1", ".sh"]:
-        raise HTTPException(status_code=400, detail="Unsupported file type.")
+    # Extended list of supported file types
+    supported_extensions = [".py", ".ps1", ".sh", ".js", ".bat", ".cmd", ".rb", ".php", ".pl", ".r"]
+    
+    if file_ext not in supported_extensions:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type. Supported: {', '.join(supported_extensions)}")
 
     file_path = os.path.join(UPLOAD_DIR, filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Determine language
+    # Determine language with extended mapping
     language_map = {
         ".py": "Python",
-        ".ps1": "PowerShell",
-        ".sh": "Bash"
+        ".ps1": "PowerShell", 
+        ".sh": "Bash",
+        ".js": "JavaScript",
+        ".bat": "Batch",
+        ".cmd": "Batch",
+        ".rb": "Ruby",
+        ".php": "PHP",
+        ".pl": "Perl",
+        ".r": "R"
     }
     language = language_map.get(file_ext, "Unknown")
 
@@ -319,14 +341,28 @@ async def execute_script(script_id: int):
     # Determine the command to run based on file extension
     file_ext = os.path.splitext(script.filename)[1].lower()
     
+    # Extended execution support for multiple script types
     if file_ext == ".py":
-        command = ["python", script.filename]  # Use just filename since we set cwd
+        command = ["python", script.filename]
     elif file_ext == ".ps1":
         command = ["powershell", "-ExecutionPolicy", "Bypass", "-File", script.filename]
     elif file_ext == ".sh":
         command = ["bash", script.filename]
+    elif file_ext == ".js":
+        command = ["node", script.filename]
+    elif file_ext in [".bat", ".cmd"]:
+        command = ["cmd", "/c", script.filename]
+    elif file_ext == ".rb":
+        command = ["ruby", script.filename]
+    elif file_ext == ".php":
+        command = ["php", script.filename]
+    elif file_ext == ".pl":
+        command = ["perl", script.filename]
+    elif file_ext == ".r":
+        command = ["Rscript", script.filename]
     else:
-        raise HTTPException(status_code=400, detail="Unsupported script type")
+        raise HTTPException(status_code=400, detail=f"Unsupported script type: {file_ext}")
+    
     
     try:
         # Execute the script with timeout
