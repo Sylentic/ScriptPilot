@@ -1279,17 +1279,17 @@ class ScriptPilot {
         if (!this.editor || !window.CodeMirror || this.editorType !== 'codemirror') return;
         
         try {
-            // Map language to CodeMirror mode
+            // Map language to CodeMirror MIME type with fallbacks
             const modeMap = {
-                'python': 'python',
-                'powershell': 'powershell',
-                'bash': 'shell',
-                'sh': 'shell',
-                'javascript': 'javascript',
-                'js': 'javascript'
+                'python': 'text/x-python',
+                'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
+                'bash': 'text/x-sh',
+                'sh': 'text/x-sh',
+                'javascript': 'text/javascript',
+                'js': 'text/javascript'
             };
             
-            const mode = modeMap[language.toLowerCase()] || 'python';
+            const mode = modeMap[language.toLowerCase()] || 'text/x-python';
             
             // Set the mode for CodeMirror 5
             this.editor.setOption('mode', mode);
@@ -1379,17 +1379,17 @@ class ScriptPilot {
     setEditorContentAndLanguage(script) {
         console.log('Setting editor content...');
         if (this.editorType === 'codemirror') {
-            // Map language to CodeMirror mode
+            // Map language to CodeMirror MIME type with fallbacks
             const modeMap = {
-                'python': 'python',
-                'powershell': 'powershell',
-                'bash': 'shell',
-                'sh': 'shell',
-                'javascript': 'javascript',
-                'js': 'javascript'
+                'python': 'text/x-python',
+                'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
+                'bash': 'text/x-sh',
+                'sh': 'text/x-sh',
+                'javascript': 'text/javascript',
+                'js': 'text/javascript'
             };
             
-            const mode = modeMap[script.language.toLowerCase()] || 'python';
+            const mode = modeMap[script.language.toLowerCase()] || 'text/x-python';
             
             // Set content and mode for CodeMirror 5
             this.editor.setValue(this.originalContent);

@@ -323,12 +323,29 @@
     <!-- CodeMirror 5 JavaScript (more stable) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/powershell/powershell.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script>
+        // Debug function to check loaded modes
+        window.debugCodeMirror = function() {
+            console.log('CodeMirror available:', !!window.CodeMirror);
+            if (window.CodeMirror && window.CodeMirror.modes) {
+                console.log('Available modes:', Object.keys(window.CodeMirror.modes));
+            }
+            if (window.CodeMirror && window.CodeMirror.mimeModes) {
+                console.log('Available MIME modes:', Object.keys(window.CodeMirror.mimeModes));
+            }
+        };
+        
+        // Call debug function when page loads
+        window.addEventListener('load', () => {
+            setTimeout(window.debugCodeMirror, 1000);
+        });
+    </script>
     <script src="/static/js/editor.js"></script>
     <script src="/static/js/app.js"></script>
 </body>

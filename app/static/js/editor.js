@@ -22,8 +22,8 @@ function createTestEditor() {
         document.body.appendChild(testContainer);
         
         const editor = window.CodeMirror(testContainer, {
-            value: 'print("Hello from test editor!")',
-            mode: 'python',
+            value: 'print("Hello from test editor!")\n# This is a Python comment\nfor i in range(5):\n    print(f"Number: {i}")',
+            mode: 'text/x-python',
             theme: 'monokai',
             lineNumbers: true,
             autoCloseBrackets: true,
@@ -32,6 +32,7 @@ function createTestEditor() {
         });
         
         console.log('Test editor created successfully:', editor);
+        console.log('Test editor mode:', editor.getOption('mode'));
         
         // Remove after 5 seconds
         setTimeout(() => {
@@ -129,19 +130,21 @@ function createCodeMirrorEditor(container, content = '', language = 'python') {
         return null;
     }
     
-    // Map language to CodeMirror mode
+    // Map language to CodeMirror mode with fallbacks
     const modeMap = {
-        'python': 'python',
-        'powershell': 'powershell',
-        'bash': 'shell',
-        'sh': 'shell',
-        'javascript': 'javascript',
-        'js': 'javascript'
+        'python': 'text/x-python',
+        'powershell': 'text/x-sh', // Fallback to shell mode for PowerShell
+        'bash': 'text/x-sh',
+        'sh': 'text/x-sh',
+        'javascript': 'text/javascript',
+        'js': 'text/javascript'
     };
     
-    const mode = modeMap[language.toLowerCase()] || 'python';
+    const mode = modeMap[language.toLowerCase()] || 'text/x-python';
     
     try {
+        console.log(`Creating CodeMirror editor with mode: ${mode} for language: ${language}`);
+        
         const editor = window.CodeMirror(container, {
             value: content,
             mode: mode,
@@ -172,6 +175,12 @@ function createCodeMirrorEditor(container, content = '', language = 'python') {
             }
         });
         
+        // Focus the editor after a short delay
+        setTimeout(() => {
+            editor.focus();
+        }, 100);
+        
+        console.log(`CodeMirror editor created successfully with mode: ${mode}`);
         return editor;
     } catch (error) {
         console.error('Error creating CodeMirror editor:', error);
