@@ -2054,6 +2054,97 @@ cat("Hello from ScriptPilot!\\n")
         }
     }
 
+    // User creation functionality
+    showCreateUserModal() {
+        this.showModal('createUserModal');
+    }
+
+    async createUser() {
+        console.log('createUser() function called!');
+        
+        // Debug: Check current user and auth status
+        console.log('Current user:', this.auth.user);
+        console.log('User role:', this.auth.user?.role);
+        console.log('Auth headers:', this.auth.getAuthHeaders());
+        
+        const username = document.getElementById('newUsername').value.trim();
+        const email = document.getElementById('newEmail').value.trim();
+        const fullName = document.getElementById('newFullName').value.trim();
+        const password = document.getElementById('newUserPassword').value;
+        const confirmPassword = document.getElementById('newUserConfirmPassword').value;
+        const role = document.getElementById('newUserRole').value;
+
+        // Debug: Log all values to see what's happening
+        console.log('Create User Debug:', {
+            username: `"${username}"`,
+            email: `"${email}"`,
+            fullName: `"${fullName}"`,
+            password: password ? `"${'*'.repeat(password.length)}"` : '""',
+            confirmPassword: confirmPassword ? `"${'*'.repeat(confirmPassword.length)}"` : '""',
+            role: `"${role}"`
+        });
+
+        // Validation (Full Name is optional)
+        if (!username || !email || !password || !confirmPassword || !role) {
+            console.log('Validation failed. Empty fields:', {
+                username: !username,
+                email: !email,
+                password: !password,
+                confirmPassword: !confirmPassword,
+                role: !role
+            });
+            this.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            this.showToast('Passwords do not match', 'error');
+            return;
+        }
+
+        if (password.length < 8) {
+            this.showToast('Password must be at least 8 characters long', 'error');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            this.showToast('Please enter a valid email address', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading();
+            await this.apiCall('/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    email: email,
+                    full_name: fullName,
+                    password: password,
+                    role: role
+                })
+            });
+            
+            this.showToast('User created successfully!', 'success');
+            this.closeModal('createUserModal');
+            
+            // Reset form
+            document.getElementById('createUserForm').reset();
+            
+            // Reload user management table
+            await this.loadUserManagement();
+            
+        } catch (error) {
+            this.showToast('Error creating user: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
     // Admin Panel Functions
     async loadUserManagement() {
         try {
@@ -2122,7 +2213,7 @@ cat("Hello from ScriptPilot!\\n")
                                         <button class="btn btn-small btn-secondary" onclick="app.viewUserAuditLog(${user.id})" title="View Audit Log">
                                             <i class="fas fa-history"></i>
                                         </button>
-                                        <button class="btn btn-small btn-danger" onclick="app.resetUser2FA(${user.id})" title="Reset 2FA">
+                                        <button class="btn btn-small btn-danger" onclick="app.resetUser2FA(${user.id})" title="Reset  2FA">
                                             <i class="fas fa-key"></i>
                                         </button>
                                     </div>
@@ -2190,7 +2281,7 @@ cat("Hello from ScriptPilot!\\n")
     async loadRBACMatrix() {
         try {
             this.showLoading();
-            const matrix = await this.apiCall('/auth/rbac-matrix');
+            const matrix = await this.apiCall('/admin/rbac-matrix/');
             this.displayRBACMatrix(matrix);
         } catch (error) {
             this.showToast('Error loading RBAC matrix: ' + error.message, 'error');
@@ -2246,7 +2337,7 @@ cat("Hello from ScriptPilot!\\n")
     async loadAuditLog() {
         try {
             this.showLoading();
-            const logs = await this.apiCall('/auth/audit-logs');
+            const logs = await this.apiCall('/admin/audit-logs/');
             this.displayAuditLog(logs);
         } catch (error) {
             this.showToast('Error loading audit log: ' + error.message, 'error');
@@ -2295,8 +2386,8 @@ cat("Hello from ScriptPilot!\\n")
                             <tr>
                                 <td class="timestamp">${new Date(log.timestamp).toLocaleString()}</td>
                                 <td class="user-cell">
-                                    <div class="user-avatar-tiny">${log.user_email.charAt(0).toUpperCase()}</div>
-                                    <span>${log.user_email}</span>
+                                    <div class="user-avatar-tiny">${log.user_email ? log.user_email.charAt(0).toUpperCase() : '?'}</div>
+                                    <span>${log.user_email || log.user_id || 'Unknown User'}</span>
                                 </td>
                                 <td>
                                     <span class="action-badge action-${log.action.replace('_', '-')}">${log.action.replace('_', ' ')}</span>
@@ -2349,7 +2440,7 @@ cat("Hello from ScriptPilot!\\n")
     async viewUserAuditLog(userId) {
         try {
             this.showLoading();
-            const logs = await this.apiCall(`/auth/audit-logs?user_id=${userId}`);
+            const logs = await this.apiCall(`/admin/audit-logs/?user_id=${userId}`);
             // Create a modal or separate view for user-specific audit log
             this.showUserAuditModal(logs);
         } catch (error) {

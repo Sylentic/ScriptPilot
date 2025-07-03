@@ -503,57 +503,15 @@ async def get_audit_logs(
     session: Session = Depends(get_db_session)
 ):
     """Get audit logs (Admin only)"""
-    # Query audit logs with user information
-    logs_query = (
-        select(AuditLog, User.email, User.username)
-        .outerjoin(User, AuditLog.user_id == User.id)
+    logs = session.exec(
+        select(AuditLog)
         .order_by(AuditLog.timestamp.desc())
         .limit(limit)
         .offset(offset)
-    )
+    ).all()
     
-    results = session.exec(logs_query).all()
-    
-    # Format the results to include user email
-    formatted_logs = []
-    for log, user_email, username in results:
-        log_dict = log.dict()
-        log_dict['user_email'] = user_email or 'Unknown'
-        log_dict['username'] = username or 'Unknown'
-        # Map field names to match frontend expectations
-        log_dict['resource'] = log.resource_type
-        log_dict['action'] = log.action
-        formatted_logs.append(log_dict)
-    
-    return formatted_logs
+    return logs
 
-@router.get("/rbac-matrix")
-async def get_rbac_matrix(
-    current_user: User = Depends(require_admin)
-):
-    """Get RBAC permission matrix (Admin only)"""
-    # Define the permission matrix
-    rbac_matrix = {
-        "viewer": [
-            "scripts:read",
-            "schedules:read", 
-            "executions:read"
-        ],
-        "editor": [
-            "scripts:read", "scripts:write", "scripts:execute",
-            "schedules:read", "schedules:write",
-            "executions:read"
-        ],
-        "admin": [
-            "scripts:read", "scripts:write", "scripts:delete", "scripts:execute",
-            "schedules:read", "schedules:write", "schedules:delete",
-            "executions:read",
-            "users:read", "users:write", 
-            "audit:read"
-        ]
-    }
-    
-    return rbac_matrix
 
 @router.post("/users/{user_id}/reset-2fa")
 async def reset_user_2fa(
@@ -561,7 +519,7 @@ async def reset_user_2fa(
     current_user: User = Depends(require_admin),
     session: Session = Depends(get_db_session)
 ):
-    """Reset 2FA for a user (Admin only)"""
+    """Reset user's 2FA (Admin only)"""
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -573,17 +531,19 @@ async def reset_user_2fa(
     
     session.add(user)
     session.commit()
+    session.refresh(user)
     
-    # Log the action
+    # Create audit log
     audit_log = AuditLog(
         user_id=current_user.id,
-        action="reset_2fa",
+        action="user_2fa_reset",
         resource_type="user",
         resource_id=user_id,
-        details=f"Reset 2FA for user: {user.email}"
+        details=f"2FA reset for user {user.username}",
+        ip_address="127.0.0.1"  # Could get from request if needed
     )
     session.add(audit_log)
     session.commit()
     
-    return {"message": "2FA reset successfully"}
+    return {"message": f"2FA reset for user {user.username}"}
 

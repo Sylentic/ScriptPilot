@@ -56,6 +56,7 @@ async def create_default_admin():
         # Check if any users exist
         existing_users = session.exec(select(User)).first()
         if existing_users:
+            print("Users already exist, skipping default admin creation")
             return
         
         # Create default admin user
@@ -78,6 +79,9 @@ async def create_default_admin():
         
         print(f"Created default admin user: {admin_username} / {admin_password}")
         print("Please change the default password after first login!")
+    except Exception as e:
+        print(f"Note: Could not create default admin user (may already exist): {e}")
+        session.rollback()
     finally:
         session.close()
 
@@ -390,15 +394,27 @@ def list_scripts(current_user: User = Depends(get_current_user_from_token)):
 @app.get("/scripts/db/", response_model=List[Script])
 def list_scripts_from_db(current_user: User = Depends(get_current_user_from_token)):
     """List scripts from database with RBAC filtering"""
+    print(f"DEBUG ENDPOINT HIT: User {current_user.username} role {current_user.role}")
+    
     with get_session() as session:
+        # Force a fresh query by explicitly clearing any caches
+        session.expire_all()
+        
         if current_user.role == UserRole.ADMIN:
             # Admins can see all scripts
+            print("DEBUG: Admin user - loading all scripts")
             scripts = session.exec(select(Script)).all()
         else:
             # Editors and viewers can only see their own scripts
+            print(f"DEBUG: Non-admin user - loading scripts for user {current_user.id}")
             scripts = session.exec(
                 select(Script).where(Script.owner_id == current_user.id)
             ).all()
+        
+        print(f"DEBUG: Found {len(scripts)} scripts")
+        for script in scripts:
+            print(f"DEBUG: Script - {script.filename} (id: {script.id}, owner: {script.owner_id})")
+        
         return scripts
 
 @app.get("/scripts/search/", response_model=List[Script])
@@ -1041,7 +1057,7 @@ def get_audit_logs(
     current_user: User = Depends(require_admin)
 ):
     """Get audit logs - admin only"""
-    from app.models import AuditLog
+    from models import AuditLog
     
     with get_session() as session:
         query = select(AuditLog).order_by(AuditLog.timestamp.desc())
@@ -1090,7 +1106,7 @@ def update_user_role(
     current_user: User = Depends(require_admin)
 ):
     """Update user role - admin only"""
-    from app.models import AuditLog
+    from models import AuditLog
     import json
     
     with get_session() as session:
@@ -1128,7 +1144,7 @@ def update_user_status(
     current_user: User = Depends(require_admin)
 ):
     """Update user active status - admin only"""
-    from app.models import AuditLog
+    from models import AuditLog
     import json
     
     with get_session() as session:
@@ -1372,7 +1388,7 @@ def create_audit_log(
     ip_address: Optional[str] = None
 ):
     """Helper function to create audit log entries"""
-    from app.models import AuditLog
+    from models import AuditLog
     
     audit_entry = AuditLog(
         user_id=user_id,
@@ -1383,6 +1399,12 @@ def create_audit_log(
         ip_address=ip_address
     )
     session.add(audit_entry)
+
+@app.get("/health")
+def health_check():
+    """Simple health check endpoint"""
+    print("DEBUG: Health check endpoint hit!")
+    return {"status": "ok", "message": "Server is running"}
 
 if __name__ == "__main__":
     import uvicorn
